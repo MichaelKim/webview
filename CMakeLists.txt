@@ -1,0 +1,28 @@
+cmake_minimum_required (VERSION 3.1)
+project (neutrino)
+
+set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+set (CMAKE_CXX_EXTENSIONS OFF)
+
+if(APPLE)
+	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_COCOA=1")
+	set(WEBVIEW_LIBS "-framework WebKit")
+elseif(WIN32)
+	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_WINAPI=1")
+	set(WEBVIEW_LIBS "ole32 comctl32 oleaut32 uuid")
+else()
+	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_GTK=1")
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+	pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.0)
+	set(WEBVIEW_COMPILE_INCS ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
+	set(WEBVIEW_LIBS ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
+endif()
+
+add_definitions(${WEBVIEW_COMPILE_DEFS})
+include_directories(include)
+add_executable(neutrino src/main.cpp)
+
+target_link_libraries(neutrino ${WEBVIEW_LIBS})
+target_include_directories(neutrino PUBLIC ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
