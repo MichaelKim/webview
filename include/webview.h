@@ -8,7 +8,6 @@
 #endif // WEBVIEW_GTK
 
 #include <functional>
-#include <iostream>
 #include <string>
 
 #define DEFAULT_URL                                                            \
@@ -55,7 +54,6 @@ private:
   int height;
   bool resizable;
   bool fullscreen = false;
-  GdkRGBA bgColor = {0, 0, 0, 0};
   bool debug;
   std::string title;
   std::string url;
@@ -67,6 +65,7 @@ private:
   bool should_exit = false; // Close window
 
 #ifdef WEBVIEW_GTK
+  GdkRGBA bgColor = {0, 0, 0, 0};
   GtkWidget *window;
   GtkWidget *webview;
 

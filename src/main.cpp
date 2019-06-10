@@ -1,5 +1,7 @@
 #include "webview.h"
 
+#include <iostream>
+
 void callback(wv::WebView &w, std::string &str) {
   std::cout << str << std::endl;
 
@@ -12,8 +14,13 @@ void callback(wv::WebView &w, std::string &str) {
   }
 }
 
-int main() {
-  wv::WebView w{800, 600, true, true, "Webkit Test", "http://localhost:8080"};
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    std::cout << "Missing URL argument" << std::endl;
+    return 2;
+  }
+
+  wv::WebView w{800, 600, true, true, "Webkit Test", argv[1]};
 
   w.setCallback(callback);
   w.setBgColor(250, 250, 210, 255);
