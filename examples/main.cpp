@@ -6,8 +6,8 @@ void callback(wv::WebView &w, std::string &str) {
   std::cout << str << std::endl;
 
   if (str == "reset") {
-    // w.css("body { background-color: green; }");
-    // w.eval("alert('heyo')");
+    w.css("body { background-color: green; }");
+    w.eval("alert('heyo')");
     w.navigate("http://google.com");
   } else if (str == "exit") {
     w.exit();
