@@ -23,7 +23,7 @@ int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 int main() {
 #endif
   // Create a 800 x 600 webview that shows Google
-  wv::WebView w{800, 600, true, true, "Hello world!", "http://google.com"};
+  wv::WebView w{800, 600, true, true, Str("Hello world!"), Str("http://google.com")};
 
   if (w.init() == -1) {
     return 1;
@@ -34,6 +34,8 @@ int main() {
   return 0;
 }
 ```
+
+Since Windows (WinAPI) uses `std::wstring`s, all string literals should be wrapped in the macro `Str(s)`.
 
 Check out example programs in the [`examples/`](examples/) directory in this repo.
 
@@ -71,7 +73,7 @@ I've gotten `clang-cl` to compile with the following steps:
 
 4. Install LLVM 8.0.0. (I've tested it with 8.0.0, but Microsoft says LLVM 6.0.0 should work too.)
    1. (Optional) Add LLVM to your PATH, specifically `clang-cl.exe`.
-5. Compile by running `clang-cl examples/main.cpp /EHsc /I "." /DWEBVIEW_WIN -Xclang -std=c++17 -Xclang -Wno-delete-non-virtual-dtor -o webview.exe /link "ole32.lib" "gdi32.lib" "WindowsApp.lib"`.
+5. Compile by running `clang-cl examples\main.cpp /EHsc /I "." -Xclang -std=c++17 -Xclang -Wno-delete-non-virtual-dtor -o webview.exe /link "WindowsApp.lib" "user32.lib" "kernel32.lib"`.
 
 You may result in some compiler errors in some of the `winrt::` headers. I fixed them by manually editing the headers in the `winrt/` subdirectory.
 

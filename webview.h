@@ -4,8 +4,10 @@
 // Headers
 #include <functional>
 #include <string>
-
 #if defined(WEBVIEW_WIN)
+#define UNICODE
+#define _UNICODE
+#define Str(s) L##s
 #define WIN32_LEAN_AND_MEAN
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "windowsapp")
@@ -14,27 +16,20 @@
 #include <windows.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Web.UI.Interop.h>
-
-constexpr auto DEFAULT_URL =
-    L"data:text/"
-    "html,%3C%21DOCTYPE%20html%3E%0A%3Chtml%20lang=%22en%22%3E%0A%3Chead%3E%"
-    "3Cmeta%20charset=%22utf-8%22%3E%3Cmeta%20http-equiv=%22X-UA-Compatible%22%"
-    "20content=%22IE=edge%22%3E%3C%2Fhead%3E%0A%3Cbody%3E%3Cdiv%20id=%22app%22%"
-    "3E%3C%2Fdiv%3E%3Cscript%20type=%22text%2Fjavascript%22%3E%3C%2Fscript%3E%"
-    "3C%2Fbody%3E%0A%3C%2Fhtml%3E";
 #elif defined(WEBVIEW_GTK) // WEBVIEW_WIN
+#define Str(s) s
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
+#endif // WEBVIEW_GTK
 
-constexpr auto DEFAULT_URL =
+constexpr auto DEFAULT_URL = Str(
     "data:text/"
     "html,%3C%21DOCTYPE%20html%3E%0A%3Chtml%20lang=%22en%22%3E%0A%3Chead%3E%"
     "3Cmeta%20charset=%22utf-8%22%3E%3Cmeta%20http-equiv=%22X-UA-Compatible%22%"
     "20content=%22IE=edge%22%3E%3C%2Fhead%3E%0A%3Cbody%3E%3Cdiv%20id=%22app%22%"
     "3E%3C%2Fdiv%3E%3Cscript%20type=%22text%2Fjavascript%22%3E%3C%2Fscript%3E%"
-    "3C%2Fbody%3E%0A%3C%2Fhtml%3E";
-#endif // WEBVIEW_GTK
+    "3C%2Fbody%3E%0A%3C%2Fhtml%3E");
 
 /*
 <!DOCTYPE html>
@@ -47,34 +42,33 @@ type="text/javascript"></script></body>
 
 namespace wv {
 #if defined(WEBVIEW_WIN)
-using string = std::wstring;
-using string = std::wstring;
+using String = std::wstring;
 using namespace winrt::impl;
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Web::UI::Interop;
 #elif defined(WEBVIEW_GTK)
-using string = std::string;
+using String = std::string;
 #endif
 
 class WebView {
   using jscb = std::function<void(WebView &, std::string &)>;
 
 public:
-  WebView(int width, int height, bool resizable, bool debug, string title,
-          string url = DEFAULT_URL)
+  WebView(int width, int height, bool resizable, bool debug, String title,
+          String url = DEFAULT_URL)
       : width(width), height(height), resizable(resizable), debug(debug),
         title(title), url(url) {}
   int init();                      // Initialize webview
   void setCallback(jscb callback); // JS callback
-  void setTitle(string t);         // Set title of window
+  void setTitle(String t);         // Set title of window
   void setFullscreen(bool fs);     // Set fullscreen
   void setBgColor(uint8_t r, uint8_t g, uint8_t b,
                   uint8_t a); // Set background color
   bool run();                 // Main loop
-  void navigate(string u);    // Navigate to URL
-  void eval(string js);       // Eval JS
-  void css(string css);       // Inject CSS
+  void navigate(String u);    // Navigate to URL
+  void eval(String js);       // Eval JS
+  void css(String css);       // Inject CSS
   void exit();                // Stop loop
 
 private:
@@ -84,18 +78,18 @@ private:
   bool resizable;
   bool fullscreen = false;
   bool debug;
-  string title;
-  string url;
+  String title;
+  String url;
 
   jscb js_callback;
   bool init_done = false; // Finished running init
+  uint8_t bgR = 255, bgG = 255, bgB = 255, bgA = 255;
 
 #if defined(WEBVIEW_WIN)
   HINSTANCE hInt = nullptr;
   HWND hwnd = nullptr;
   WebViewControl webview{nullptr};
   MSG msg; // Message from main loop
-  uint8_t bgR = 255, bgG = 255, bgB = 255, bgA = 0;
 
   static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                        LPARAM lparam);
@@ -103,11 +97,9 @@ private:
   bool ready = false;       // Done loading page
   bool js_busy = false;     // Currently in JS eval
   bool should_exit = false; // Close window
-  GdkRGBA bgColor = {0, 0, 0, 0};
   GtkWidget *window;
   GtkWidget *webview;
 
-  void setBgColor(GdkRGBA color);
   static void external_message_received_cb(WebKitUserContentManager *m,
                                            WebKitJavascriptResult *r,
                                            gpointer arg);
@@ -218,6 +210,8 @@ int WebView::init() {
   setTitle(title);
   setBgColor(bgR, bgG, bgB, bgA);
   navigate(url);
+
+  return 0;
 }
 
 void WebView::setCallback(jscb callback) { js_callback = callback; }
@@ -376,7 +370,7 @@ int WebView::init() {
   if (fullscreen) {
     setFullscreen(true);
   }
-  setBgColor(bgColor);
+  setBgColor(bgR, bgG, bgB, bgA);
   navigate(url);
 
   // Finish
@@ -407,11 +401,14 @@ void WebView::setFullscreen(bool fs) {
 }
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-  GdkRGBA color = {r / 255.0, g / 255.0, b / 255.0, a / 255.0};
   if (!init_done) {
-    bgColor = color;
+    bgR = r;
+    bgG = g;
+    bgB = b;
+    bgA = a;
   } else {
-    setBgColor(color);
+    GdkRGBA color = {r / 255.0, g / 255.0, b / 255.0, a / 255.0};
+    webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(webview), &color);
   }
 }
 
@@ -456,10 +453,6 @@ void WebView::css(std::string css) {
 }
 
 void WebView::exit() { should_exit = true; }
-
-void WebView::setBgColor(GdkRGBA color) {
-  webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(webview), &color);
-}
 
 void WebView::external_message_received_cb(WebKitUserContentManager *m,
                                            WebKitJavascriptResult *r,

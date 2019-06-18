@@ -22,7 +22,7 @@ endif()
 
 add_definitions(${WEBVIEW_COMPILE_DEFS})
 include_directories(include)
-add_executable(webkit examples/main.cpp)
+add_executable(webview examples/basic.cpp)
 
-target_link_libraries(webkit ${WEBVIEW_LIBS})
-target_include_directories(webkit PUBLIC ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
+target_link_libraries(webview ${WEBVIEW_LIBS})
+target_include_directories(webview PUBLIC ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
