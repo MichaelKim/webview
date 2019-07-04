@@ -1,15 +1,20 @@
 # webview
 
-A tiny cross-platform webview library written in C++ using EdgeHTML / WinRT (Windows) and WebkitGTK (Linux).
+A tiny cross-platform webview library written in C++ using EdgeHTML / WinRT (Windows), Cocoa + Webkit (MacOS) and WebkitGTK (Linux).
 
-This is mostly a fork of zerge's [webview](https://github.com/zserge/webview) but rewritten for a more "C++"-like API and added support for Microsoft Edge on Windows.
+Inspired from zerge's [webview](https://github.com/zserge/webview), this library was rewritten with several priorities:
+
+- A more "C++"-like API
+- Support for Microsoft Edge on Windows
+- Replaced Objective-C runtime C code with actual Objective-C code
 
 ## Support
 
-|            | Windows            | Linux                         |
-| ---------- | ------------------ | ----------------------------- |
-| Version    | Windows 10, v1803+ | Tested on Ubuntu 18.04.02 LTS |
-| Web Engine | EdgeHTML           | WebKit                        |
+|            | Windows            | MacOS                  | Linux                         |
+| ---------- | ------------------ | ---------------------- | ----------------------------- |
+| Version    | Windows 10, v1803+ | Tested on MacOS Mojave | Tested on Ubuntu 18.04.02 LTS |
+| Web Engine | EdgeHTML           | Webkit                 | WebKit                        |
+| GUI        | Windows API        | Cocoa                  | GTK                           |
 
 ## Usage
 
@@ -40,6 +45,8 @@ Since Windows (WinAPI) uses `std::wstring`s, all string literals should be wrapp
 Check out example programs in the [`examples/`](examples/) directory in this repo.
 
 ## Build
+
+If you have CMake installed, the included config should work for all platforms.
 
 ### Windows
 
@@ -90,6 +97,16 @@ CheckNetIsolation.exe LoopbackExempt -a -n=Microsoft.Win32WebViewHost_cw5n1h2txy
 ```
 
 This can then be checked using `CheckNetIsolation.exe LoopbackExempt -s`. Read more about network loopbacks [here](<https://docs.microsoft.com/en-us/previous-versions/windows/apps/dn640582(v=win.10)>).
+
+### MacOS
+
+webview depends on the Cocoa and Webkit frameworks. Also, make sure your compiler supports Objective-C (g++ and clang++ should both work).
+
+To compile,
+
+```
+g++ main.cpp -DWEBVIEW_MAC -ObjC++ -std=c++11 -framework Cocoa -framework Webkit -o webview
+```
 
 ### Linux
 

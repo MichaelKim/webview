@@ -16,7 +16,21 @@
 #include <windows.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Web.UI.Interop.h>
-#elif defined(WEBVIEW_GTK) // WEBVIEW_WIN
+#elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
+#define Str(s) s
+#import <Cocoa/Cocoa.h>
+#import <Webkit/Webkit.h>
+#include <objc/objc-runtime.h>
+
+// ObjC declarations may only appear in global scope
+@interface WindowDelegate:NSObject <NSWindowDelegate, WKScriptMessageHandler>
+@end
+
+@implementation WindowDelegate
+- (void)userContentController: (WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)scriptMessage {
+}
+@end
+#elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
 #define Str(s) s
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
@@ -47,6 +61,8 @@ using namespace winrt::impl;
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Web::UI::Interop;
+#elif defined(WEBVIEW_MAC)
+using String = std::string;
 #elif defined(WEBVIEW_GTK)
 using String = std::string;
 #endif
@@ -63,8 +79,7 @@ public:
   void setCallback(jscb callback); // JS callback
   void setTitle(String t);         // Set title of window
   void setFullscreen(bool fs);     // Set fullscreen
-  void setBgColor(uint8_t r, uint8_t g, uint8_t b,
-                  uint8_t a); // Set background color
+  void setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a); // Set background color
   bool run();                 // Main loop
   void navigate(String u);    // Navigate to URL
   void eval(String js);       // Eval JS
@@ -93,7 +108,12 @@ private:
 
   static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                        LPARAM lparam);
-#elif defined(WEBVIEW_GTK) // WEBVIEW_WIN
+#elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
+  bool should_exit = false; // Close window
+  NSAutoreleasePool *pool;
+  NSWindow *window;
+  WKWebView *webview;
+#elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
   bool ready = false;       // Done loading page
   bool js_busy = false;     // Currently in JS eval
   bool should_exit = false; // Close window
@@ -208,13 +228,18 @@ int WebView::init() {
   init_done = true;
 
   setTitle(title);
+  if (fullscreen) {
+    setFullscreen(true);
+  }
   setBgColor(bgR, bgG, bgB, bgA);
   navigate(url);
 
   return 0;
 }
 
-void WebView::setCallback(jscb callback) { js_callback = callback; }
+void WebView::setCallback(jscb callback) {
+  js_callback = callback;
+}
 
 void WebView::setTitle(std::wstring t) {
   if (!init_done) {
@@ -224,7 +249,9 @@ void WebView::setTitle(std::wstring t) {
   }
 }
 
-void WebView::setFullscreen(bool fs) {}
+void WebView::setFullscreen(bool fs) {
+  // TODO: implement
+}
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
   if (!init_done) {
@@ -290,7 +317,9 @@ void WebView::css(std::wstring css) {
        css + L"')");
 }
 
-void WebView::exit() { PostQuitMessage(WM_QUIT); }
+void WebView::exit() {
+  PostQuitMessage(WM_QUIT);
+}
 
 LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                        LPARAM lparam) {
@@ -309,7 +338,186 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
   }
   return 0;
 }
-#elif defined(WEBVIEW_GTK) // WEBVIEW_WIN
+#elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
+int WebView::init() {
+  // Initialize autorelease pool
+  pool = [NSAutoreleasePool new];
+
+  // Window style: titled, closable, minimizable
+  uint style = NSWindowStyleMaskTitled |
+                NSWindowStyleMaskClosable |
+                NSWindowStyleMaskMiniaturizable;
+
+  // Set window to be resizable
+  if (resizable) {
+      style |= NSWindowStyleMaskResizable;
+  }
+
+  // Initialize Cocoa window
+  window = [[NSWindow alloc]
+      // Initial window size
+      initWithContentRect:NSMakeRect(0, 0, width, height)
+      // Window style
+      styleMask:style
+      backing:NSBackingStoreBuffered
+      defer:NO
+  ];
+
+  // Minimum window size
+  [window setContentMinSize:NSMakeSize(width, height)];
+
+  // Position window in center of screen
+  [window center];
+
+  // Initialize WKWebView
+  WKWebViewConfiguration *config = [WKWebViewConfiguration new];
+  WKPreferences *prefs = [config preferences];
+  WKUserContentController *controller = [config userContentController];
+  [prefs setJavaScriptCanOpenWindowsAutomatically:NO];
+  [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+
+  webview = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
+
+  // Add delegate methods manually in order to capture "this"
+  class_replaceMethod([WindowDelegate class], @selector(windowWillClose:), imp_implementationWithBlock(
+    [=](id self, SEL cmd, id notification) {
+      this->exit();
+    }
+  ), "v@:@");
+
+  class_replaceMethod([WindowDelegate class], @selector(userContentController:didReceiveScriptMessage:), imp_implementationWithBlock(
+    [=](id self, SEL cmd, WKScriptMessage *scriptMessage) {
+      if (this->js_callback) {
+        id body = [scriptMessage body];
+        if (![body isKindOfClass:[NSString class]]) {
+            return;
+        }
+
+        std::string msg = [body UTF8String];
+        this->js_callback(*this, msg);
+      }
+    }
+  ), "v@:@");
+
+  WindowDelegate *delegate = [WindowDelegate alloc];
+  // Send message from JS using window.webkit.messageHandlers.webview.postMessage
+  // TODO: add script for window.external.invoke
+  [controller addScriptMessageHandler:delegate name:@"webview"];
+  // Set delegate to window
+  [window setDelegate:delegate];
+
+  // Initialize application
+  [NSApplication sharedApplication];
+  [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+  // Sets the app as the active app
+  [NSApp activateIgnoringOtherApps:YES];
+
+  // Add webview to window
+  [window setContentView:webview];
+
+  // Display window
+  [window makeKeyAndOrderFront:nil];
+
+  // Done initialization, set properties
+  init_done = true;
+
+  setTitle(title);
+  if (fullscreen) {
+    setFullscreen(true);
+  }
+  setBgColor(bgR, bgG, bgB, bgA);
+  navigate(url);
+
+  return 0;
+}
+
+void WebView::setCallback(jscb callback) {
+  js_callback = callback;
+}
+
+void WebView::setTitle(std::string t) {
+  if (!init_done) {
+    title = t;
+  } else {
+    [window setTitle:[NSString stringWithUTF8String:t.c_str()]];
+  }
+}
+
+void WebView::setFullscreen(bool fs) {
+  if (!init_done) {
+    fullscreen = fs;
+  } else if (fs) {
+    // TODO: replace toggle with set
+    [window toggleFullScreen:nil];
+  } else {
+    [window toggleFullScreen:nil];
+  }
+}
+
+void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+  if (!init_done) {
+    bgR = r;
+    bgG = g;
+    bgB = b;
+    bgA = a;
+  } else {
+    [window setBackgroundColor:
+      [NSColor colorWithCalibratedRed: r / 255.0
+        green: g / 255.0
+        blue: b / 255.0
+        alpha: a / 255.0
+      ]
+    ];
+  }
+}
+
+bool WebView::run() {
+   NSEvent *event = [NSApp nextEventMatchingMask: NSEventMaskAny
+                                     untilDate: [NSDate distantFuture]
+                                        inMode: NSDefaultRunLoopMode
+                                       dequeue: true];
+  if (event) {
+    [NSApp sendEvent: event];
+  }
+
+  return should_exit;
+}
+
+void WebView::navigate(std::string u) {
+  if (!init_done) {
+    url = u;
+  } else {
+    [webview loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithUTF8String:u.c_str()]]]];
+  }
+}
+
+void WebView::eval(std::string js) {
+  [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()] completionHandler:nil];
+}
+
+void WebView::css(std::string css) {
+  eval(R"js(
+    (
+      function (css) {
+        if (document.styleSheets.length === 0) {
+          var s = document.createElement('style');
+          s.type = 'text/css';
+          document.head.appendChild(s);
+        }
+        document.styleSheets[0].insertRule(css);
+      }
+    )(')js" +
+       css + "')");
+}
+
+void WebView::exit() {
+  // Distinguish window closing with app exiting
+  should_exit = true;
+  [NSApp terminate:nil];
+}
+
+#elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
 int WebView::init() {
   if (gtk_init_check(0, NULL) == FALSE) {
     return -1;
@@ -380,7 +588,9 @@ int WebView::init() {
   return 0;
 }
 
-void WebView::setCallback(jscb callback) { this->js_callback = callback; }
+void WebView::setCallback(jscb callback) {
+  js_callback = callback;
+}
 
 void WebView::setTitle(std::string t) {
   if (!init_done) {
@@ -452,7 +662,9 @@ void WebView::css(std::string css) {
        css + "')");
 }
 
-void WebView::exit() { should_exit = true; }
+void WebView::exit() {
+  should_exit = true;
+}
 
 void WebView::external_message_received_cb(WebKitUserContentManager *m,
                                            WebKitJavascriptResult *r,
