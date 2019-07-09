@@ -2,11 +2,7 @@
 
 #include "webview.h"
 
-#ifdef WIN32
-int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-#else
-int main() {
-#endif
+WEBVIEW_MAIN {
   wv::WebView w{
       800, 600, true, true, Str("WebView"), Str("http://www.google.com")};
 

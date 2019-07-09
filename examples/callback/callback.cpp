@@ -18,11 +18,7 @@ void callback(wv::WebView &w, std::string &arg) {
   }
 }
 
-#ifdef WIN32
-int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-#else
-int main() {
-#endif
+WEBVIEW_MAIN {
   wv::WebView w{800,
                 600,
                 true,

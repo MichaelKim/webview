@@ -5,6 +5,7 @@
 #include <functional>
 #include <string>
 #if defined(WEBVIEW_WIN)
+#define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #define UNICODE
 #define _UNICODE
 #define Str(s) L##s
@@ -17,20 +18,23 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Web.UI.Interop.h>
 #elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
+#define WEBVIEW_MAIN int main()
 #define Str(s) s
 #import <Cocoa/Cocoa.h>
 #import <Webkit/Webkit.h>
 #include <objc/objc-runtime.h>
 
 // ObjC declarations may only appear in global scope
-@interface WindowDelegate:NSObject <NSWindowDelegate, WKScriptMessageHandler>
+@interface WindowDelegate : NSObject <NSWindowDelegate, WKScriptMessageHandler>
 @end
 
 @implementation WindowDelegate
-- (void)userContentController: (WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)scriptMessage {
+- (void)userContentController:(WKUserContentController *)userContentController
+      didReceiveScriptMessage:(WKScriptMessage *)scriptMessage {
 }
 @end
 #elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
+#define WEBVIEW_MAIN int main()
 #define Str(s) s
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
@@ -81,7 +85,8 @@ public:
   void setCallback(jscb callback); // JS callback
   void setTitle(String t);         // Set title of window
   void setFullscreen(bool fs);     // Set fullscreen
-  void setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a); // Set background color
+  void setBgColor(uint8_t r, uint8_t g, uint8_t b,
+                  uint8_t a); // Set background color
   bool run();                 // Main loop
   void navigate(String u);    // Navigate to URL
   void eval(String js);       // Eval JS
@@ -239,9 +244,7 @@ int WebView::init() {
   return 0;
 }
 
-void WebView::setCallback(jscb callback) {
-  js_callback = callback;
-}
+void WebView::setCallback(jscb callback) { js_callback = callback; }
 
 void WebView::setTitle(std::wstring t) {
   if (!init_done) {
@@ -319,9 +322,7 @@ void WebView::css(std::wstring css) {
        css + L"')");
 }
 
-void WebView::exit() {
-  PostQuitMessage(WM_QUIT);
-}
+void WebView::exit() { PostQuitMessage(WM_QUIT); }
 
 LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                        LPARAM lparam) {
@@ -346,24 +347,22 @@ int WebView::init() {
   pool = [NSAutoreleasePool new];
 
   // Window style: titled, closable, minimizable
-  uint style = NSWindowStyleMaskTitled |
-                NSWindowStyleMaskClosable |
-                NSWindowStyleMaskMiniaturizable;
+  uint style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+               NSWindowStyleMaskMiniaturizable;
 
   // Set window to be resizable
   if (resizable) {
-      style |= NSWindowStyleMaskResizable;
+    style |= NSWindowStyleMaskResizable;
   }
 
   // Initialize Cocoa window
   window = [[NSWindow alloc]
       // Initial window size
       initWithContentRect:NSMakeRect(0, 0, width, height)
-      // Window style
-      styleMask:style
-      backing:NSBackingStoreBuffered
-      defer:NO
-  ];
+                // Window style
+                styleMask:style
+                  backing:NSBackingStoreBuffered
+                    defer:NO];
 
   // Minimum window size
   [window setContentMinSize:NSMakeSize(width, height)];
@@ -381,28 +380,32 @@ int WebView::init() {
   webview = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
 
   // Add delegate methods manually in order to capture "this"
-  class_replaceMethod([WindowDelegate class], @selector(windowWillClose:), imp_implementationWithBlock(
-    [=](id self, SEL cmd, id notification) {
-      this->exit();
-    }
-  ), "v@:@");
+  class_replaceMethod(
+      [WindowDelegate class], @selector(windowWillClose:),
+      imp_implementationWithBlock(
+          [=](id self, SEL cmd, id notification) { this->exit(); }),
+      "v@:@");
 
-  class_replaceMethod([WindowDelegate class], @selector(userContentController:didReceiveScriptMessage:), imp_implementationWithBlock(
-    [=](id self, SEL cmd, WKScriptMessage *scriptMessage) {
-      if (this->js_callback) {
-        id body = [scriptMessage body];
-        if (![body isKindOfClass:[NSString class]]) {
-            return;
-        }
+  class_replaceMethod(
+      [WindowDelegate class],
+      @selector(userContentController:didReceiveScriptMessage:),
+      imp_implementationWithBlock(
+          [=](id self, SEL cmd, WKScriptMessage *scriptMessage) {
+            if (this->js_callback) {
+              id body = [scriptMessage body];
+              if (![body isKindOfClass:[NSString class]]) {
+                return;
+              }
 
-        std::string msg = [body UTF8String];
-        this->js_callback(*this, msg);
-      }
-    }
-  ), "v@:@");
+              std::string msg = [body UTF8String];
+              this->js_callback(*this, msg);
+            }
+          }),
+      "v@:@");
 
   WindowDelegate *delegate = [WindowDelegate alloc];
-  // Send message from JS using window.webkit.messageHandlers.webview.postMessage
+  // Send message from JS using
+  // window.webkit.messageHandlers.webview.postMessage
   // TODO: add script for window.external.invoke
   [controller addScriptMessageHandler:delegate name:@"webview"];
   // Set delegate to window
@@ -434,9 +437,7 @@ int WebView::init() {
   return 0;
 }
 
-void WebView::setCallback(jscb callback) {
-  js_callback = callback;
-}
+void WebView::setCallback(jscb callback) { js_callback = callback; }
 
 void WebView::setTitle(std::string t) {
   if (!init_done) {
@@ -464,23 +465,20 @@ void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     bgB = b;
     bgA = a;
   } else {
-    [window setBackgroundColor:
-      [NSColor colorWithCalibratedRed: r / 255.0
-        green: g / 255.0
-        blue: b / 255.0
-        alpha: a / 255.0
-      ]
-    ];
+    [window setBackgroundColor:[NSColor colorWithCalibratedRed:r / 255.0
+                                                         green:g / 255.0
+                                                          blue:b / 255.0
+                                                         alpha:a / 255.0]];
   }
 }
 
 bool WebView::run() {
-   NSEvent *event = [NSApp nextEventMatchingMask: NSEventMaskAny
-                                     untilDate: [NSDate distantFuture]
-                                        inMode: NSDefaultRunLoopMode
-                                       dequeue: true];
+  NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                      untilDate:[NSDate distantFuture]
+                                         inMode:NSDefaultRunLoopMode
+                                        dequeue:true];
   if (event) {
-    [NSApp sendEvent: event];
+    [NSApp sendEvent:event];
   }
 
   return should_exit;
@@ -490,12 +488,17 @@ void WebView::navigate(std::string u) {
   if (!init_done) {
     url = u;
   } else {
-    [webview loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithUTF8String:u.c_str()]]]];
+    [webview
+        loadRequest:[NSURLRequest
+                        requestWithURL:
+                            [NSURL URLWithString:[NSString stringWithUTF8String:
+                                                               u.c_str()]]]];
   }
 }
 
 void WebView::eval(std::string js) {
-  [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()] completionHandler:nil];
+  [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()]
+            completionHandler:nil];
 }
 
 void WebView::css(std::string css) {
@@ -590,9 +593,7 @@ int WebView::init() {
   return 0;
 }
 
-void WebView::setCallback(jscb callback) {
-  js_callback = callback;
-}
+void WebView::setCallback(jscb callback) { js_callback = callback; }
 
 void WebView::setTitle(std::string t) {
   if (!init_done) {
@@ -664,9 +665,7 @@ void WebView::css(std::string css) {
        css + "')");
 }
 
-void WebView::exit() {
-  should_exit = true;
-}
+void WebView::exit() { should_exit = true; }
 
 void WebView::external_message_received_cb(WebKitUserContentManager *m,
                                            WebKitJavascriptResult *r,

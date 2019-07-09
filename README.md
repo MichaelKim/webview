@@ -22,11 +22,7 @@ Inspired from zerge's [webview](https://github.com/zserge/webview), this library
 // main.cpp
 #include "webview.h"
 
-#ifdef WIN32 // To support Windows
-int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-#else
-int main() {
-#endif
+WEBVIEW_MAIN {
   // Create a 800 x 600 webview that shows Google
   wv::WebView w{800, 600, true, true, Str("Hello world!"), Str("http://google.com")};
 
@@ -43,6 +39,18 @@ int main() {
 Since Windows (WinAPI) uses `std::wstring`s, all string literals should be wrapped in the macro `Str(s)`.
 
 Check out example programs in the [`examples/`](examples/) directory in this repo.
+
+Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
+
+```c++
+#ifdef WEBVIEW_WIN
+#define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+#else
+#define WEBVIEW_MAIN int main()
+#endif
+```
+
+This is needed since Win32 GUI applications uses `WinMain` as the entry point rather than the standard `main`. You can write your own main for more control (i.e. for command line arguments), but make sure to use `WinMain` if you need to support Windows.
 
 ## Build
 
