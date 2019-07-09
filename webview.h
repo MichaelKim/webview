@@ -35,7 +35,9 @@
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
-#endif // WEBVIEW_GTK
+#else // WEBVIEW_GTK
+#error "Define one of WEBVIEW_WIN, WEBVIEW_MAC, or WEBVIEW_GTK"
+#endif
 
 constexpr auto DEFAULT_URL = Str(
     "data:text/"

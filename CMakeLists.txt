@@ -23,9 +23,8 @@ else()
 	set(WEBVIEW_LIBS ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
 endif()
 
-add_definitions(${WEBVIEW_COMPILE_DEFS})
-include_directories(include)
-add_executable(webview examples/basic.cpp)
-
-target_link_libraries(webview ${WEBVIEW_LIBS})
+add_library(webview ${CMAKE_CURRENT_BINARY_DIR}/webview.cpp)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/webview.cpp "#include <webview.h>")
 target_include_directories(webview PUBLIC ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
+target_compile_definitions(webview PUBLIC ${WEBVIEW_COMPILE_DEFS})
+target_link_libraries(webview ${WEBVIEW_LIBS})

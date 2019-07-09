@@ -5,9 +5,9 @@
 
 #include "webview.h"
 
-#include <iostream>
-
-long long factorial(long long n) { return n <= 1 ? 1 : n * factorial(n - 1); }
+long long factorial(long long n) {
+  return n <= 1 ? 1 : n * factorial(n - 1);
+}
 
 void callback(wv::WebView &w, std::string &arg) {
   try {
