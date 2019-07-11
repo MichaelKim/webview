@@ -24,7 +24,7 @@ else()
 endif()
 
 add_library(webview ${CMAKE_CURRENT_BINARY_DIR}/webview.cpp)
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/webview.cpp "#include <webview.h>")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/webview.cpp "#include <webview.hpp>")
 target_include_directories(webview PUBLIC ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
 target_compile_definitions(webview PUBLIC ${WEBVIEW_COMPILE_DEFS})
 target_link_libraries(webview ${WEBVIEW_LIBS})

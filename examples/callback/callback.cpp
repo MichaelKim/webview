@@ -3,7 +3,7 @@
 // Make sure to add a loopback exception if developing on Windows
 // (check the README).
 
-#include "webview.h"
+#include "webview.hpp"
 
 long long factorial(long long n) {
   return n <= 1 ? 1 : n * factorial(n - 1);

@@ -38,6 +38,12 @@ WEBVIEW_MAIN {
 
 Since Windows (WinAPI) uses `std::wstring`s, all string literals should be wrapped in the macro `Str(s)`.
 
+The following URL schemes are supported:
+
+- HTTP(S): `http://` and `https://`
+- Local file: `file:///`, make sure to point to an `html` file
+- Inline data: `data:text/html,<html>...</html>`
+
 Check out example programs in the [`examples/`](examples/) directory in this repo.
 
 Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
@@ -46,11 +52,11 @@ Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
 #ifdef WEBVIEW_WIN
 #define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #else
-#define WEBVIEW_MAIN int main()
+#define WEBVIEW_MAIN int main(int argc, char **argv)
 #endif
 ```
 
-This is needed since Win32 GUI applications uses `WinMain` as the entry point rather than the standard `main`. You can write your own main for more control (i.e. for command line arguments), but make sure to use `WinMain` if you need to support Windows.
+This is needed since Win32 GUI applications uses `WinMain` as the entry point rather than the standard `main`. You can write your own main for more control, but make sure to use `WinMain` if you need to support Windows.
 
 ## Build
 

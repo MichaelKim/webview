@@ -1,6 +1,6 @@
 // Basic webview example
 
-#include "webview.h"
+#include "webview.hpp"
 
 WEBVIEW_MAIN {
   wv::WebView w{

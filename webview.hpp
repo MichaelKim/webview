@@ -18,7 +18,7 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Web.UI.Interop.h>
 #elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
-#define WEBVIEW_MAIN int main()
+#define WEBVIEW_MAIN int main(int argc, char **argv)
 #define Str(s) s
 #import <Cocoa/Cocoa.h>
 #import <Webkit/Webkit.h>
@@ -34,7 +34,7 @@
 }
 @end
 #elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
-#define WEBVIEW_MAIN int main()
+#define WEBVIEW_MAIN int main(int argc, char **argv)
 #define Str(s) s
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
