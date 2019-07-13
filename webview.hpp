@@ -89,6 +89,7 @@ public:
                   uint8_t a); // Set background color
   bool run();                 // Main loop
   void navigate(String u);    // Navigate to URL
+  void preEval(String js);    // Eval JS before page loads
   void eval(String js);       // Eval JS
   void css(String css);       // Inject CSS
   void exit();                // Stop loop
@@ -108,6 +109,8 @@ private:
   uint8_t bgR = 255, bgG = 255, bgB = 255, bgA = 255;
 
 #if defined(WEBVIEW_WIN)
+  String inject =
+      Str("window.external={invoke:arg=>window.external.notify(arg)};");
   HINSTANCE hInt = nullptr;
   HWND hwnd = nullptr;
   WebViewControl webview{nullptr};
@@ -116,11 +119,15 @@ private:
   static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                        LPARAM lparam);
 #elif defined(WEBVIEW_MAC) // WEBVIEW_WIN
+  String inject = Str("window.external={invoke:arg=>window.webkit."
+                      "messageHandlers.webview.postMessage(arg)};");
   bool should_exit = false; // Close window
   NSAutoreleasePool *pool;
   NSWindow *window;
   WKWebView *webview;
 #elif defined(WEBVIEW_GTK) // WEBVIEW_MAC
+  String inject = Str("window.external={invoke:arg=>window.webkit."
+                      "messageHandlers.external.postMessage(arg)};");
   bool ready = false;       // Done loading page
   bool js_busy = false;     // Currently in JS eval
   bool should_exit = false; // Close window
@@ -218,10 +225,8 @@ int WebView::init() {
       js_callback(*this, s);
     }
   });
-  webview.NavigationStarting([=](auto &&, auto &&) {
-    webview.AddInitializeScript(L"(function(){window.external.invoke = s => "
-                                L"window.external.notify(s)})();");
-  });
+  webview.NavigationStarting(
+      [=](auto &&, auto &&) { webview.AddInitializeScript(inject); });
 
   // Set window bounds
   RECT r;
@@ -286,6 +291,8 @@ void WebView::navigate(std::wstring u) {
     webview.Navigate(uri);
   }
 }
+
+void WebView::preEval(std::wstring js) { inject += L"(()=>{" + js + L"})()"; }
 
 void WebView::eval(std::wstring js) {
   auto op = webview.InvokeScriptAsync(
@@ -373,9 +380,16 @@ int WebView::init() {
   // Initialize WKWebView
   WKWebViewConfiguration *config = [WKWebViewConfiguration new];
   WKPreferences *prefs = [config preferences];
-  WKUserContentController *controller = [config userContentController];
   [prefs setJavaScriptCanOpenWindowsAutomatically:NO];
   [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+
+  WKUserContentController *controller = [config userContentController];
+  // Add inject script
+  WKUserScript *userScript = [WKUserScript alloc];
+  [userScript initWithSource:[NSString stringWithUTF8String:inject.c_str()]
+               injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+            forMainFrameOnly:NO];
+  [controller addUserScript:userScript];
 
   webview = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
 
@@ -404,9 +418,6 @@ int WebView::init() {
       "v@:@");
 
   WindowDelegate *delegate = [WindowDelegate alloc];
-  // Send message from JS using
-  // window.webkit.messageHandlers.webview.postMessage
-  // TODO: add script for window.external.invoke
   [controller addScriptMessageHandler:delegate name:@"webview"];
   // Set delegate to window
   [window setDelegate:delegate];
@@ -496,6 +507,8 @@ void WebView::navigate(std::string u) {
   }
 }
 
+void WebView::preEval(std::string js) { inject += "(()=>{" + js + "})()"; }
+
 void WebView::eval(std::string js) {
   [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()]
             completionHandler:nil];
@@ -570,11 +583,8 @@ int WebView::init() {
                      G_CALLBACK(webview_context_menu_cb), nullptr);
   }
 
-  webkit_web_view_run_javascript(
-      WEBKIT_WEB_VIEW(webview),
-      "window.external={invoke:function(x){"
-      "window.webkit.messageHandlers.external.postMessage(x);}}",
-      NULL, NULL, NULL);
+  webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), inject, NULL, NULL,
+                                 NULL);
 
   // Done initialization, set properties
   init_done = true;
@@ -637,6 +647,8 @@ void WebView::navigate(std::string u) {
     webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webview), u.c_str());
   }
 }
+
+void WebView::preEval(std::string js) { inject += "(()=>{" + js + "})()"; }
 
 void WebView::eval(std::string js) {
   while (!ready) {

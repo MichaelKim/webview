@@ -341,7 +341,15 @@ Navigates the webview to the specified URI.
 
 - uri: URI to the webpage
 
-### `run`
+### 'preEval'
+
+```c++
+void preEval(string js);
+```
+
+Injects the JavaScript string into the webpage before it loads.
+
+### `eval`
 
 ```c++
 void eval(string js);
