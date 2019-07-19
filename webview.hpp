@@ -583,8 +583,8 @@ int WebView::init() {
                      G_CALLBACK(webview_context_menu_cb), nullptr);
   }
 
-  webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), inject, NULL, NULL,
-                                 NULL);
+  webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), inject.c_str(), NULL,
+                                 NULL, NULL);
 
   // Done initialization, set properties
   init_done = true;
