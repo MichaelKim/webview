@@ -12,7 +12,7 @@ Inspired from zerge's [webview](https://github.com/zserge/webview), this library
 
 |            | Windows            | MacOS                  | Linux                         |
 | ---------- | ------------------ | ---------------------- | ----------------------------- |
-| Version    | Windows 10, v1803+ | Tested on MacOS Mojave | Tested on Ubuntu 18.04.02 LTS |
+| Version    | Windows 10, v1809+ | Tested on MacOS Mojave | Tested on Ubuntu 18.04.02 LTS |
 | Web Engine | EdgeHTML           | Webkit                 | WebKit                        |
 | GUI        | Windows API        | Cocoa                  | GTK                           |
 
@@ -100,9 +100,9 @@ You may result in some compiler errors in some of the `winrt::` headers. I fixed
 
 #### Windows OS
 
-- Requires Windows 10, version 1803 (Build 17134), recommended version 1809 (Build 17763)
+- Requires Windows 10, version 1809 (Build 17763)
 
-The C++/WinRT API is fairly new, and its webview was introduced in v1803 ([UniversalAPIContract v6](https://docs.microsoft.com/en-us/uwp/api/windows.web.ui.interop.webviewcontrol)). For more information about API contracts, read this [blog post by Microsoft](https://blogs.windows.com/buildingapps/2015/09/15/dynamically-detecting-features-with-api-contracts-10-by-10/#sRg3eXXT8oJzhUxY.97).
+The C++/WinRT API is fairly new, and its webview was introduced in v1803 ([UniversalAPIContract v6](https://docs.microsoft.com/en-us/uwp/api/windows.web.ui.interop.webviewcontrol)). This also uses `WebViewControl.AddInitializeScript` introduced in v1809. For more information about API contracts, read this [blog post by Microsoft](https://blogs.windows.com/buildingapps/2015/09/15/dynamically-detecting-features-with-api-contracts-10-by-10/#sRg3eXXT8oJzhUxY.97).
 
 Also, displaying `localhost` in the webview will only work after adding a loopback exception. A simple way to enable this is to run
 
