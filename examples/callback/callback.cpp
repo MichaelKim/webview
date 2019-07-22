@@ -5,6 +5,12 @@
 
 #include "webview.hpp"
 
+#ifdef WEBVIEW_WIN
+#define to_string std::to_wstring
+#else
+#define to_string std::to_string
+#endif
+
 long long factorial(long long n) {
   return n <= 1 ? 1 : n * factorial(n - 1);
 }
@@ -12,7 +18,7 @@ long long factorial(long long n) {
 void callback(wv::WebView &w, std::string &arg) {
   try {
     long long num = std::stoll(arg);
-    w.eval(Str("result(" + std::to_string(factorial(num)) + ")"));
+    w.eval(Str("result(") + to_string(factorial(num)) + Str(")"));
   } catch (std::exception e) {
     w.eval(Str("result('Invalid number')"));
   }

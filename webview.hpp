@@ -110,7 +110,7 @@ private:
 
 #if defined(WEBVIEW_WIN)
   String inject =
-      Str("window.external={invoke:arg=>window.external.notify(arg)};");
+      Str("window.external.invoke=arg=>window.external.notify(arg);");
   HINSTANCE hInt = nullptr;
   HWND hwnd = nullptr;
   WebViewControl webview{nullptr};
@@ -151,6 +151,20 @@ private:
 };
 
 #if defined(WEBVIEW_WIN)
+// Await helper
+template <typename T> auto block(T const &async) {
+  if (async.Status() != AsyncStatus::Completed) {
+    winrt::handle h(CreateEvent(nullptr, false, false, nullptr));
+    async.Completed([h = h.get()](auto, auto) { SetEvent(h); });
+    HANDLE hs[] = {h.get()};
+    DWORD i;
+    CoWaitForMultipleHandles(COWAIT_DISPATCH_WINDOW_MESSAGES |
+                                 COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
+                             INFINITE, 1, hs, &i);
+  }
+  return async.GetResults();
+}
+
 int WebView::init() {
   hInt = GetModuleHandle(nullptr);
   if (hInt == nullptr) {
@@ -205,19 +219,8 @@ int WebView::init() {
       WebViewControlProcessCapabilityState::Enabled);
 
   WebViewControlProcess proc(options);
-  auto op =
-      proc.CreateWebViewControlAsync(reinterpret_cast<int64_t>(hwnd), Rect());
-  if (op.Status() != AsyncStatus::Completed) {
-    winrt::handle h(CreateEvent(nullptr, false, false, nullptr));
-    op.Completed([h = h.get()](auto, auto) { SetEvent(h); });
-    HANDLE hs[] = {h.get()};
-    DWORD i;
-    winrt::check_hresult(CoWaitForMultipleHandles(
-        COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS |
-            COWAIT_INPUTAVAILABLE,
-        INFINITE, 1, hs, &i));
-  }
-  webview = op.GetResults();
+  webview = block(
+      proc.CreateWebViewControlAsync(reinterpret_cast<int64_t>(hwnd), Rect()));
   webview.Settings().IsScriptNotifyAllowed(true);
   webview.ScriptNotify([=](auto const &sender, auto const &args) {
     if (js_callback) {
@@ -280,7 +283,7 @@ bool WebView::run() {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
-  return loop;
+  return !loop;
 }
 
 void WebView::navigate(std::wstring u) {
@@ -295,23 +298,12 @@ void WebView::navigate(std::wstring u) {
 void WebView::preEval(std::wstring js) { inject += L"(()=>{" + js + L"})()"; }
 
 void WebView::eval(std::wstring js) {
-  auto op = webview.InvokeScriptAsync(
-      L"eval", std::vector<winrt::hstring>({winrt::hstring(js)}));
+  auto result = block(webview.InvokeScriptAsync(
+      L"eval", std::vector<winrt::hstring>({winrt::hstring(js)})));
 
-  if (debug) {
-    if (op.Status() != AsyncStatus::Completed) {
-      winrt::handle h(CreateEvent(nullptr, false, false, nullptr));
-      op.Completed([h = h.get()](auto, auto) { SetEvent(h); });
-      HANDLE hs[] = {h.get()};
-      DWORD i;
-      winrt::check_hresult(CoWaitForMultipleHandles(
-          COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS |
-              COWAIT_INPUTAVAILABLE,
-          INFINITE, 1, hs, &i));
-    }
-    auto result = op.GetResults();
-    // std::cout << winrt::to_string(result) << std::endl;
-  }
+  // if (debug) {
+  // std::cout << winrt::to_string(result) << std::endl;
+  //}
 }
 
 void WebView::css(std::wstring css) {

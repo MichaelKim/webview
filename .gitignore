@@ -1,2 +1,6 @@
 .vscode/
 build/
+winrt/
+.vs/
+out/
+CMakeSettings.json

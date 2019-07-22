@@ -42,7 +42,9 @@ The following URL schemes are supported:
 
 - HTTP(S): `http://` and `https://`
 - Local file: `file:///`, make sure to point to an `html` file
+  - TODO: this doesn't work in Windows
 - Inline data: `data:text/html,<html>...</html>`
+  - TODO: test on Windows
 
 Check out example programs in the [`examples/`](examples/) directory in this repo.
 
@@ -70,6 +72,8 @@ In order to target EdgeHTML (Microsoft Edge), `webview` uses the new C++/WinRT A
 
 **tl;dr**: Upgrade to latest version of Windows 10, install Visual Studio 2019, install the Windows 10 SDK, and add the [C++/WinRT VSIX](https://marketplace.visualstudio.com/items?itemName=CppWinRTTeam.cppwinrt101804264).
 
+To debug, install the [Microsoft Edge DevTools](https://www.microsoft.com/en-us/p/microsoft-edge-devtools-preview/9mzbfrmz0mnj).
+
 #### Compiler
 
 - Requires C++17
@@ -78,8 +82,8 @@ In order to target EdgeHTML (Microsoft Edge), `webview` uses the new C++/WinRT A
 
 Also, use `std::wstring` in place of `std::string` when using webview APIs (with the exception of `wv::WebView::callback`).
 
-#### I don't like Visual Studio!
-
+<details><summary><strong>I don't like Visual Studio!</strong></summary>
+<p>
 While not officially supported, Microsoft does use Clang internally for testing purposes. If you want to use Clang, they have some basic instructions on their website [here](https://docs.microsoft.com/en-us/windows/uwp/cpp-and-winrt-apis/faq#can-i-use-llvmclang-to-compile-with-cwinrt).
 
 I've gotten `clang-cl` to compile with the following steps:
@@ -97,6 +101,9 @@ I've gotten `clang-cl` to compile with the following steps:
 5. Compile by running `clang-cl examples\main.cpp /EHsc /I "." -Xclang -std=c++17 -Xclang -Wno-delete-non-virtual-dtor -o webview.exe /link "WindowsApp.lib" "user32.lib" "kernel32.lib"`.
 
 You may result in some compiler errors in some of the `winrt::` headers. I fixed them by manually editing the headers in the `winrt/` subdirectory.
+
+</p>
+</details>
 
 #### Windows OS
 
