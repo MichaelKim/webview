@@ -84,7 +84,7 @@ Also, use `std::wstring` in place of `std::string` when using webview APIs (with
 
 <details><summary><strong>I don't like Visual Studio!</strong></summary>
 <p>
-While not officially supported, Microsoft does use Clang internally for testing purposes. If you want to use Clang, they have some basic instructions on their website [here](https://docs.microsoft.com/en-us/windows/uwp/cpp-and-winrt-apis/faq#can-i-use-llvmclang-to-compile-with-cwinrt).
+While not officially supported, Microsoft does use Clang internally for testing purposes. If you want to use Clang, they have some basic instructions on <a href="https://docs.microsoft.com/en-us/windows/uwp/cpp-and-winrt-apis/faq#can-i-use-llvmclang-to-compile-with-cwinrt" rel="nofollow">their website</a>.
 
 I've gotten `clang-cl` to compile with the following steps:
 
