@@ -100,6 +100,8 @@ I've gotten `clang-cl` to compile with the following steps:
    1. (Optional) Add LLVM to your PATH, specifically `clang-cl.exe`.
 5. Compile by running `clang-cl examples\main.cpp /EHsc /I "." -Xclang -std=c++17 -Xclang -Wno-delete-non-virtual-dtor -o webview.exe /link "WindowsApp.lib" "user32.lib" "kernel32.lib"`.
 
+If your `winrt/` directory is located somewhere else, change the `/I "."` argument above.
+
 You may result in some compiler errors in some of the `winrt::` headers. I fixed them by manually editing the headers in the `winrt/` subdirectory.
 
 </p>
