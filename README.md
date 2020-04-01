@@ -10,11 +10,13 @@ Inspired from zerge's [webview](https://github.com/zserge/webview), this library
 
 ## Support
 
-|            | Windows            | MacOS                  | Linux                         |
-| ---------- | ------------------ | ---------------------- | ----------------------------- |
-| Version    | Windows 10, v1809+ | Tested on MacOS Mojave | Tested on Ubuntu 18.04.02 LTS |
-| Web Engine | EdgeHTML           | Webkit                 | WebKit                        |
-| GUI        | Windows API        | Cocoa                  | GTK                           |
+|            | Windows            | MacOS                            | Linux                         |
+| ---------- | ------------------ | -------------------------------- | ----------------------------- |
+| Version    | Windows 10, v1809+ | Tested on MacOS Mojave, Catalina | Tested on Ubuntu 18.04.02 LTS |
+| Web Engine | EdgeHTML           | Webkit                           | WebKit                        |
+| GUI        | Windows API        | Cocoa                            | GTK                           |
+
+There is also experimental support for the new Edge (Chromium) for Windows.
 
 ## Usage
 
@@ -59,6 +61,13 @@ Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
 ```
 
 This is needed since Win32 GUI applications uses `WinMain` as the entry point rather than the standard `main`. You can write your own main for more control, but make sure to use `WinMain` if you need to support Windows.
+
+## Limitations
+
+There are several limitations on Windows stemming from the EdgeHTML webview:
+
+- The webview cannot be run as an administrator.
+- The webview cannot navigate to local HTML files (i.e: `file:///...`).
 
 ## Build
 
