@@ -16,7 +16,7 @@ Inspired from zerge's [webview](https://github.com/zserge/webview), this library
 | Web Engine | EdgeHTML           | Webkit                           | WebKit                        |
 | GUI        | Windows API        | Cocoa                            | GTK                           |
 
-There is also experimental support for the new Edge (Chromium) for Windows.
+There is also experimental support for the new Edge (Chromium) for Windows. See [`examples/edge/`](examples/edge/) for more details.
 
 ## Usage
 

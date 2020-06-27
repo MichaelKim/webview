@@ -138,9 +138,9 @@ private:
       "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);");
   HINSTANCE hInt = nullptr;
   HWND hwnd = nullptr;
-  MSG msg;                                     // Message from main loop
-  wil::com_ptr<ICoreWebView2Host> webviewHost; // Pointer to WebViewHost
-  wil::com_ptr<ICoreWebView2> webviewWindow;   // Pointer to WebView window
+  MSG msg;                                                  // Message from main loop
+  wil::com_ptr<ICoreWebView2Controller> webviewController;  // Pointer to WebViewController
+  wil::com_ptr<ICoreWebView2> webviewWindow;                // Pointer to WebView window
 
   void resize();
   static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
@@ -438,19 +438,17 @@ int WebView::init() {
   UpdateWindow(hwnd);
   SetFocus(hwnd);
 
-  CreateCoreWebView2EnvironmentWithDetails(
+  CreateCoreWebView2EnvironmentWithOptions(
       nullptr, nullptr, nullptr,
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-          [&](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
-            // Create a CoreWebView2Host and get the associated CoreWebView2
-            // whose parent is the main window hWnd
-            env->CreateCoreWebView2Host(
+          [&](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+            env->CreateCoreWebView2Controller(
               hwnd,
-                Callback<ICoreWebView2CreateCoreWebView2HostCompletedHandler>(
-                    [&](HRESULT result, ICoreWebView2Host *host) -> HRESULT {
-                      if (host != nullptr) {
-                        webviewHost = host;
-                        webviewHost->get_CoreWebView2(&webviewWindow);
+                Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                    [&](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+                      if (controller != nullptr) {
+                        webviewController = controller;
+                        webviewController->get_CoreWebView2(&webviewWindow);
                       }
 
                       // Add a few settings for the webview
@@ -592,7 +590,7 @@ void WebView::exit() { PostQuitMessage(WM_QUIT); }
 void WebView::resize() {
   RECT rc;
   GetClientRect(hwnd, &rc);
-  webviewHost->put_Bounds(rc);
+  webviewController->put_Bounds(rc);
 }
 
 LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
