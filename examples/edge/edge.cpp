@@ -1,17 +1,36 @@
 // Basic webview example
 #define WEBVIEW_EDGE
 #include "../../webview.hpp"
+#include <filesystem>
+
+long long factorial(long long n) {
+	return n <= 1 ? 1 : n * factorial(n - 1);
+}
+
+void callback(wv::WebView& w, std::string& arg) {
+	try {
+		long long num = std::stoll(arg);
+		w.eval(Str("result(") + std::to_wstring(factorial(num)) + Str(")"));
+	}
+	catch (std::exception e) {
+		w.eval(Str("result('Invalid number')"));
+	}
+}
 
 WEBVIEW_MAIN{
-  wv::WebView w{
-      800, 600, true, true, Str("WebView"), Str("http://www.google.com")};
+	auto cwd = std::filesystem::current_path();
 
-  if (w.init() == -1) {
-    return 1;
-  }
+	wv::WebView w{800, 600, true, true, Str("WebView Callback"), Str("file:///") + wv::String(cwd / "index.html")};
 
-  while (w.run() == 0)
-    ;
+	// This can be called before or after w.init();
+	w.setCallback(callback);
 
-  return 0;
+	if (w.init() == -1) {
+	  return 1;
+	}
+
+	while (w.run() == 0)
+	  ;
+
+	return 0;
 }

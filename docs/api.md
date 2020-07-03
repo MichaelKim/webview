@@ -245,7 +245,7 @@ Executes the JavaScript string in the current webpage.
 ```c++
 #include "webview.h"
 
-void callback(WebView &w, std::string &arg) {
+void callback(wv::WebView &w, std::string &arg) {
   if (arg == "eval") {
     w.eval("alert('boo!')");
   }
@@ -291,7 +291,7 @@ This method works similar to `WebView::eval`.
 ```c++
 #include "webview.h"
 
-void callback(WebView &w, std::string &arg) {
+void callback(wv::WebView &w, std::string &arg) {
   if (arg == "style") {
     w.css("p { color: red; }");
   }

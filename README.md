@@ -67,6 +67,8 @@ There are several limitations on Windows stemming from the EdgeHTML webview:
 - The webview cannot be run as an administrator.
 - The webview cannot navigate to local HTML files (i.e: `file:///...`).
 
+These can be avoided by using the new Chromium Edge webview.
+
 # Documentation
 
 - [Build Steps](docs/build.md)

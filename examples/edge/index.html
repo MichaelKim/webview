@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  </head>
+  <body>
+    <input type="text" id="input" />
+    <button id="btn">Calculate</button>
+    <div id="ans"></div>
+    <script type="text/javascript">
+      var input = document.getElementById('input');
+      var btn = document.getElementById('btn');
+      var ans = document.getElementById('ans');
+
+      input.onkeydown = function(e) {
+        if (e.key === 'Enter') {
+          send();
+        }
+      };
+      btn.onclick = send;
+
+      function send() {
+        if (!input.value) {
+          input.value = 0;
+        }
+
+        window.external.invoke(input.value);
+      }
+
+      function result(num) {
+        ans.innerHTML = 'Factorial: ' + num;
+      }
+    </script>
+  </body>
+</html>
