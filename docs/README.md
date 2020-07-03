@@ -1,4 +1,4 @@
 # Table of Contents
 
-- [Build Steps](docs/build.md)
-- [API Reference](docs/api.md)
+- [Build Steps](build.md)
+- [API Reference](api.md)
