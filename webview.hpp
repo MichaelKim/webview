@@ -95,8 +95,8 @@ namespace wv {
 		using jscb = std::function<void(WebView&, String&)>;
 
 	public:
-		WebView(int width, int height, bool resizable, bool debug, String title,
-			String url = DEFAULT_URL)
+		WebView(int width, int height, bool resizable, bool debug, const String& title,
+			const String& url = DEFAULT_URL)
 			: width(width), height(height), resizable(resizable), debug(debug),
 			title(title), url(url) {}
 		int init();                      // Initialize webview
@@ -107,9 +107,9 @@ namespace wv {
 			uint8_t a); // Set background color
 		bool run();                 // Main loop
 		void navigate(String u);    // Navigate to URL
-		void preEval(String js);    // Eval JS before page loads
-		void eval(String js);       // Eval JS
-		void css(String css);       // Inject CSS
+		void preEval(const String& js);    // Eval JS before page loads
+		void eval(const String& js);       // Eval JS
+		void css(const String& css);       // Inject CSS
 		void exit();                // Stop loop
 
 	private:
@@ -211,12 +211,12 @@ namespace wv {
 		wc.cbClsExtra = 0;
 		wc.cbWndExtra = 0;
 		wc.hInstance = hInt;
-		wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-		wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+		wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+		wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 		wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-		wc.lpszMenuName = NULL;
+		wc.lpszMenuName = nullptr;
 		wc.lpszClassName = L"webview";
-		wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+		wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
 
 		RegisterClassEx(&wc);
 		hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
@@ -224,7 +224,7 @@ namespace wv {
 			hInt, nullptr);
 
 		if (hwnd == nullptr) {
-			MessageBox(NULL, L"Window Registration Failed!", L"Error!",
+			MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
 				MB_ICONEXCLAMATION | MB_OK);
 			return 0;
 		}
@@ -235,7 +235,7 @@ namespace wv {
 		r.top = 0;
 		r.right = width;
 		r.bottom = height;
-		SetWindowPos(hwnd, NULL, r.left, r.top, r.right - r.left, r.bottom - r.top,
+		SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top,
 			SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
 		// Used with GetWindowLongPtr
@@ -313,7 +313,7 @@ namespace wv {
 	}
 
 	bool WebView::run() {
-		bool loop = GetMessage(&msg, NULL, 0, 0) > 0;
+		bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
 		if (loop) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -331,9 +331,9 @@ namespace wv {
 		}
 	}
 
-	void WebView::preEval(std::wstring js) { inject += L"(()=>{" + js + L"})()"; }
+	void WebView::preEval(const std::wstring& js) { inject += L"(()=>{" + js + L"})()"; }
 
-	void WebView::eval(std::wstring js) {
+	void WebView::eval(const std::wstring& js) {
 		auto result = block(webview.InvokeScriptAsync(
 			L"eval", std::vector<winrt::hstring>({ winrt::hstring(js) })));
 
@@ -342,7 +342,7 @@ namespace wv {
 		//}
 	}
 
-	void WebView::css(std::wstring css) {
+	void WebView::css(const std::wstring& css) {
 		eval(LR"js(
   (
     function (css) {
@@ -407,15 +407,15 @@ namespace wv {
 		wc.cbClsExtra = 0;
 		wc.cbWndExtra = 0;
 		wc.hInstance = hInt;
-		wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-		wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+		wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+		wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 		wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-		wc.lpszMenuName = NULL;
+		wc.lpszMenuName = nullptr;
 		wc.lpszClassName = L"webview";
-		wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+		wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
 
 		if (!RegisterClassEx(&wc)) {
-			MessageBox(NULL, L"Call to RegisterClassEx failed!", L"Error!", NULL);
+			MessageBox(nullptr, L"Call to RegisterClassEx failed!", L"Error!", NULL);
 
 			return 1;
 		}
@@ -425,7 +425,7 @@ namespace wv {
 			hInt, nullptr);
 
 		if (hwnd == nullptr) {
-			MessageBox(NULL, L"Window Registration Failed!", L"Error!",
+			MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
 				MB_ICONEXCLAMATION | MB_OK);
 			return 1;
 		}
@@ -436,7 +436,7 @@ namespace wv {
 		r.top = 0;
 		r.right = width;
 		r.bottom = height;
-		SetWindowPos(hwnd, NULL, r.left, r.top, r.right - r.left, r.bottom - r.top,
+		SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top,
 			SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
 		// Used with GetWindowLongPtr
@@ -548,7 +548,7 @@ namespace wv {
 	}
 
 	bool WebView::run() {
-		bool loop = GetMessage(&msg, NULL, 0, 0) > 0;
+		bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
 		if (loop) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -565,9 +565,9 @@ namespace wv {
 		}
 	}
 
-	void WebView::preEval(std::wstring js) { inject += L"(()=>{" + js + L"})()"; }
+	void WebView::preEval(const std::wstring& js) { inject += L"(()=>{" + js + L"})()"; }
 
-	void WebView::eval(std::wstring js) {
+	void WebView::eval(const std::wstring& js) {
 		// Schedule an async task to get the document URL
 		webviewWindow->ExecuteScript(
 			js.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
@@ -583,7 +583,7 @@ namespace wv {
 		//}
 	}
 
-	void WebView::css(std::wstring css) {
+	void WebView::css(const std::wstring& css) {
 		eval(LR"js(
   (
     function (css) {
@@ -746,11 +746,8 @@ namespace wv {
 		if (!init_done) {
 			fullscreen = fs;
 		}
-		else if (fs) {
-			// TODO: replace toggle with set
-			[window toggleFullScreen : nil] ;
-		}
 		else {
+			// TODO: replace toggle with set
 			[window toggleFullScreen : nil] ;
 		}
 	}
@@ -795,14 +792,14 @@ namespace wv {
 		}
 	}
 
-	void WebView::preEval(std::string js) { inject += "(()=>{" + js + "})()"; }
+	void WebView::preEval(const std::string& js) { inject += "(()=>{" + js + "})()"; }
 
-	void WebView::eval(std::string js) {
+	void WebView::eval(const std::string& js) {
 		[webview evaluateJavaScript : [NSString stringWithUTF8String : js.c_str()]
 			completionHandler : nil] ;
 	}
 
-	void WebView::css(std::string css) {
+	void WebView::css(const std::string& css) {
 		eval(R"js(
     (
       function (css) {
@@ -943,9 +940,9 @@ namespace wv {
 		}
 	}
 
-	void WebView::preEval(std::string js) { inject += "(()=>{" + js + "})()"; }
+	void WebView::preEval(const std::string& js) { inject += "(()=>{" + js + "})()"; }
 
-	void WebView::eval(std::string js) {
+	void WebView::eval(const std::string& js) {
 		while (!ready) {
 			g_main_context_iteration(NULL, TRUE);
 		}
@@ -957,7 +954,7 @@ namespace wv {
 		}
 	}
 
-	void WebView::css(std::string css) {
+	void WebView::css(const std::string& css) {
 		eval(R"js(
     (
       function (css) {
