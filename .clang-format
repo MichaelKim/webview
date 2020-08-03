@@ -1,0 +1,4 @@
+BasedOnStyle: Google
+AccessModifierOffset: -4
+IndentWidth: 4
+PointerAlignment: Left
