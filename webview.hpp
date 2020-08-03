@@ -92,7 +92,7 @@ namespace wv {
 #endif
 
 	class WebView {
-		using jscb = std::function<void(WebView&, std::string&)>;
+		using jscb = std::function<void(WebView&, String&)>;
 
 	public:
 		WebView(int width, int height, bool resizable, bool debug, String title,
@@ -260,7 +260,8 @@ namespace wv {
 		webview.ScriptNotify([=](auto const& sender, auto const& args) {
 			if (js_callback) {
 				std::string s = winrt::to_string(args.Value());
-				js_callback(*this, s);
+				std::wstring ws(s.begin(), s.end());
+				js_callback(*this, ws);
 			}
 			});
 		webview.NavigationStarting(
@@ -486,9 +487,7 @@ namespace wv {
 											args->TryGetWebMessageAsString(&messageRaw);
 											if (js_callback) {
 												std::wstring message(messageRaw);
-												std::string str(message.begin(), message.end());
-												// TODO: fix conversion
-												js_callback(*this, str);
+												js_callback(*this, message);
 											}
 											CoTaskMemFree(messageRaw);
 											return S_OK;
