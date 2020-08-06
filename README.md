@@ -42,9 +42,8 @@ The following URL schemes are supported:
 
 - HTTP(S): `http://` and `https://`
 - Local file: `file:///`, make sure to point to an `html` file
-  - TODO: this doesn't work in Windows
+  - Not supported in Edge Legacy (see [Limitations](#limitations))
 - Inline data: `data:text/html,<html>...</html>`
-  - TODO: test on Windows
 
 Check out example programs in the [`examples/`](examples/) directory in this repo.
 
