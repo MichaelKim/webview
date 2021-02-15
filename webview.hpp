@@ -1,642 +1,383 @@
-#ifndef WEBVIEW_H
-#define WEBVIEW_H
+#pragma once
 
 // Headers
+#include "lib/json/single_include/nlohmann/json.hpp"
 #include <functional>
 #include <string>
-#if defined(WEBVIEW_WIN)
-#define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-#define UNICODE
-#define _UNICODE
-#define Str(s) L##s
-#define WIN32_LEAN_AND_MEAN
-#pragma comment(lib, "gdi32.lib")
-#pragma comment(lib, "windowsapp")
+#include <string_view>
 
-#include <objbase.h>
-#include <windows.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Web.UI.Interop.h>
-#elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
-#define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-#define UNICODE
-#define _UNICODE
-#define Str(s) L##s
-#include <tchar.h>
+#if defined(WEBVIEW_EDGE)
+#include <codecvt>
+#include <locale>
+#include <mutex>
 #include <wil/com.h>
 #include <windows.h>
 #include <wrl.h>
 
-#include "WebView2.h"
+#include <WebView2.h>
 
-#elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
-#define WEBVIEW_MAIN int main(int argc, char** argv)
-#define Str(s) s
-#import <Cocoa/Cocoa.h>
-#import <Webkit/Webkit.h>
-#include <objc/objc-runtime.h>
-
-// ObjC declarations may only appear in global scope
-@interface WindowDelegate : NSObject <NSWindowDelegate, WKScriptMessageHandler>
-@end
-
-@implementation WindowDelegate
-- (void)userContentController:(WKUserContentController*)userContentController
-      didReceiveScriptMessage:(WKScriptMessage*)scriptMessage {
-}
-@end
-#elif defined(WEBVIEW_GTK)  // WEBVIEW_MAC
-#define WEBVIEW_MAIN int main(int argc, char** argv)
-#define Str(s) s
+#elif defined(WEBVIEW_GTK)
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
-#else  // WEBVIEW_GTK
-#error "Define one of WEBVIEW_WIN, WEBVIEW_MAC, or WEBVIEW_GTK"
+#else
+#error "Define one of WEBVIEW_EDGE, or WEBVIEW_GTK"
 #endif
 
-constexpr auto DEFAULT_URL = Str(R"(data:text/html,
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-</head>
-<body>
-<div id="app"></div>
-<script type="text/javascript"></script>
-</body>
-</html>)");
+namespace wv
+{
+#if defined(WEBVIEW_EDGE)
+    using namespace Microsoft::WRL;
+#endif
 
-/*"data:text/html,"
-        "%3C%21DOCTYPE%20html%3E%0A%3Chtml%20lang=%22en%22%3E%0A%3Chead%3E%"
-        "3Cmeta%20charset=%22utf-8%22%3E%3Cmeta%20http-equiv=%22X-UA-Compatible%22%"
-        "20content=%22IE=edge%22%3E%3C%2Fhead%3E%0A%3Cbody%3E%3Cdiv%20id=%22app%22%"
-        "3E%3C%2Fdiv%3E%3Cscript%20type=%22text%2Fjavascript%22%3E%3C%2Fscript%3E%"
-        "3C%2Fbody%3E%0A%3C%2Fhtml%3E");
-*/
+    class WebView
+    {
+        static constexpr auto debug = true;
+        using callback_t = std::function<std::string(WebView &, const std::vector<std::string> &)>;
 
-namespace wv {
-#if defined(WEBVIEW_WIN)
-using String = std::wstring;
-using namespace winrt::impl;
-using namespace winrt::Windows::Foundation;
-using namespace winrt::Windows::Foundation::Collections;
-using namespace winrt::Windows::Web::UI::Interop;
+#if defined(WEBVIEW_GTK)
+        static constexpr std::string_view INVOKE_CODE = "window.external={invoke:arg=>window.webkit."
+                                                        "messageHandlers.external.postMessage(arg)};";
 #elif defined(WEBVIEW_EDGE)
-using String = std::wstring;
-using namespace Microsoft::WRL;
-#elif defined(WEBVIEW_MAC)
-using String = std::string;
+        static constexpr std::string_view INVOKE_CODE =
+            "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);";
+#endif
+      private:
+        bool resizable;
+        int width, height;
+
+        std::string url;
+        std::string title;
+
+        bool init_done = false;
+        std::map<std::string, callback_t> callbacks;
+
+        struct
+        {
+            std::uint8_t r = 255, g = 255, b = 255, a = 255;
+        } background_color;
+
+#if defined(WEBVIEW_EDGE)
+        std::mutex run_mutex;
+        std::vector<std::function<void()>> run_on_init_done;
+        HINSTANCE hInt = nullptr;
+        HWND hwnd = nullptr;
+        MSG msg = {};
+        wil::com_ptr<ICoreWebView2Controller> webview_controller;
+        wil::com_ptr<ICoreWebView2> webviewWindow;
+        bool ready = false;
+
+        void resize();
+        static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 #elif defined(WEBVIEW_GTK)
-using String = std::string;
+
+        bool ready = false;
+        bool should_exit = false;
+        bool javascript_busy = false;
+
+        GtkWidget *window;
+        GtkWidget *webview;
+
+        static void externalMessageReceived(WebKitUserContentManager *m, WebKitJavascriptResult *r, gpointer arg);
+        static void webViewLoadChanged(WebKitWebView *webview, WebKitLoadEvent event, gpointer arg);
+        static void webViewEvalFinished(GObject *object, GAsyncResult *result, gpointer arg);
+        static void destroyWindow(GtkWidget *widget, gpointer arg);
+
+        static gboolean webViewContextMenu(WebKitWebView *webview, GtkWidget *default_menu,
+                                           WebKitHitTestResult *hit_test_result, gboolean triggered_with_keyboard,
+                                           gpointer user_data);
 #endif
 
-class WebView {
-    using jscb = std::function<void(WebView&, String&)>;
-
-public:
-    WebView(int width, int height, bool resizable, bool debug,
-            const String& title, const String& url = DEFAULT_URL)
-        : width(width),
-          height(height),
-          resizable(resizable),
-          debug(debug),
-          title(title),
-          url(url) {}
-    int init();                       // Initialize webview
-    void setCallback(jscb callback);  // JS callback
-    void setTitle(String t);          // Set title of window
-    void setFullscreen(bool fs);      // Set fullscreen
-    void setBgColor(uint8_t r, uint8_t g, uint8_t b,
-                    uint8_t a);      // Set background color
-    bool run();                      // Main loop
-    void navigate(String u);         // Navigate to URL
-    void preEval(const String& js);  // Eval JS before page loads
-    void eval(const String& js);     // Eval JS
-    void css(const String& css);     // Inject CSS
-    void exit();                     // Stop loop
-
-private:
-    // Properties for init
-    int width;
-    int height;
-    bool resizable;
-    bool fullscreen = false;
-    bool debug;
-    String title;
-    String url;
-
-    jscb js_callback;
-    bool init_done = false;  // Finished running init
-    uint8_t bgR = 255, bgG = 255, bgB = 255, bgA = 255;
-
-#if defined(WEBVIEW_WIN)
-    String inject =
-        Str("window.external.invoke=arg=>window.external.notify(arg);");
-    HINSTANCE hInt = nullptr;
-    HWND hwnd = nullptr;
-    WebViewControl webview{nullptr};
-    MSG msg;  // Message from main loop
-
-    void resize();
-    static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                         LPARAM lparam);
-#elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
-    String inject = Str(
-        "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);");
-    HINSTANCE hInt = nullptr;
-    HWND hwnd = nullptr;
-    MSG msg = {};  // Message from main loop
-    wil::com_ptr<ICoreWebView2Controller>
-        webviewController;                      // Pointer to WebViewController
-    wil::com_ptr<ICoreWebView2> webviewWindow;  // Pointer to WebView window
-
-    void resize();
-    static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                         LPARAM lparam);
-#elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
-    String inject =
-        Str("window.external={invoke:arg=>window.webkit."
-            "messageHandlers.webview.postMessage(arg)};");
-    bool should_exit = false;  // Close window
-    NSAutoreleasePool* pool;
-    NSWindow* window;
-    WKWebView* webview;
-#elif defined(WEBVIEW_GTK)   // WEBVIEW_MAC
-    String inject =
-        Str("window.external={invoke:arg=>window.webkit."
-            "messageHandlers.external.postMessage(arg)};");
-    bool ready = false;        // Done loading page
-    bool js_busy = false;      // Currently in JS eval
-    bool should_exit = false;  // Close window
-    GtkWidget* window;
-    GtkWidget* webview;
-
-    static void external_message_received_cb(WebKitUserContentManager* m,
-                                             WebKitJavascriptResult* r,
-                                             gpointer arg);
-    static void webview_eval_finished(GObject* object, GAsyncResult* result,
-                                      gpointer arg);
-    static void webview_load_changed_cb(WebKitWebView* webview,
-                                        WebKitLoadEvent event, gpointer arg);
-    static void destroyWindowCb(GtkWidget* widget, gpointer arg);
-    // static gboolean closeWebViewCb(WebKitWebView *webView, GtkWidget
-    // *window);
-    static gboolean webview_context_menu_cb(
-        WebKitWebView* webview, GtkWidget* default_menu,
-        WebKitHitTestResult* hit_test_result, gboolean triggered_with_keyboard,
-        gpointer userdata);
-#endif                       // WEBVIEW_GTK
-};
-
-#if defined(WEBVIEW_WIN)
-// Await helper
-template <typename T>
-auto block(T const& async) {
-    if (async.Status() != AsyncStatus::Completed) {
-        winrt::handle h(CreateEvent(nullptr, false, false, nullptr));
-        async.Completed([h = h.get()](auto, auto) { SetEvent(h); });
-        HANDLE hs[] = {h.get()};
-        DWORD i;
-        CoWaitForMultipleHandles(COWAIT_DISPATCH_WINDOW_MESSAGES |
-                                     COWAIT_DISPATCH_CALLS |
-                                     COWAIT_INPUTAVAILABLE,
-                                 INFINITE, 1, hs, &i);
-    }
-    return async.GetResults();
-}
-
-int WebView::init() {
-    hInt = GetModuleHandle(nullptr);
-    if (hInt == nullptr) {
-        return -1;
-    }
-
-    // Initialize Win32 window
-    WNDCLASSEX wc;
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = 0;
-    wc.lpfnWndProc = WndProcedure;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
-    wc.hInstance = hInt;
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszMenuName = nullptr;
-    wc.lpszClassName = L"webview";
-    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
-
-    RegisterClassEx(&wc);
-    hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
-                        nullptr, hInt, nullptr);
-
-    if (hwnd == nullptr) {
-        MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
-                   MB_ICONEXCLAMATION | MB_OK);
-        return 0;
-    }
-
-    // Set window size
-    RECT r;
-    r.left = 0;
-    r.top = 0;
-    r.right = width;
-    r.bottom = height;
-    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
-                 r.bottom - r.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-    // Used with GetWindowLongPtr
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
-
-    ShowWindow(hwnd, SW_SHOWDEFAULT);
-    UpdateWindow(hwnd);
-    SetFocus(hwnd);
-
-    // Initialize WinRT WebView
-    init_apartment(winrt::apartment_type::single_threaded);
-
-    // Allow intranet access (and localhost)
-    WebViewControlProcessOptions options;
-    options.PrivateNetworkClientServerCapability(
-        WebViewControlProcessCapabilityState::Enabled);
-
-    WebViewControlProcess proc(options);
-    webview = block(proc.CreateWebViewControlAsync(
-        reinterpret_cast<int64_t>(hwnd), Rect()));
-    webview.Settings().IsScriptNotifyAllowed(true);
-    webview.ScriptNotify([=](auto const& sender, auto const& args) {
-        if (js_callback) {
-            std::string s = winrt::to_string(args.Value());
-            std::wstring ws(s.begin(), s.end());
-            js_callback(*this, ws);
+      public:
+        WebView(int width, int height, bool resizable, std::string title, std::string url)
+            : width(width), height(height), resizable(resizable), title(std::move(title)), url(std::move(url))
+        {
         }
-    });
-    webview.NavigationStarting(
-        [=](auto&&, auto&&) { webview.AddInitializeScript(inject); });
 
-    // Set webview bounds
-    resize();
+        bool init();
+        void exit();
+        bool run();
 
-    webview.IsVisible(true);
+        void css(const std::string &css);
+        void eval(const std::string &code);
+        void navigate(const std::string &url);
 
-    // Done initialization, set properties
-    init_done = true;
+        void setTitle(const std::string &t);
+        void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+        void addCallback(const std::string &name, const callback_t &callback);
+    };
 
-    setTitle(title);
-    if (fullscreen) {
-        setFullscreen(true);
+#if defined(WEBVIEW_EDGE)
+    // God please forgive me my sins, writing code on windows is worse than hell
+    static std::wstring charToWString(const char *text)
+    {
+        const size_t size = std::strlen(text);
+        std::wstring wstr;
+        if (size > 0)
+        {
+            wstr.resize(size);
+            std::mbstowcs(&wstr[0], text, size);
+        }
+        return wstr;
     }
-    setBgColor(bgR, bgG, bgB, bgA);
-    navigate(url);
+    static std::string ws2s(const std::wstring &wstr)
+    {
+        using convert_typeX = std::codecvt_utf8<wchar_t>;
+        std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-    return 0;
-}
-
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::wstring t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        SetWindowText(hwnd, t.c_str());
-    }
-}
-
-void WebView::setFullscreen(bool fs) {
-    // TODO: implement
-}
-
-void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    if (!init_done) {
-        bgR = r;
-        bgG = g;
-        bgB = b;
-        bgA = a;
-    } else {
-        webview.DefaultBackgroundColor({a, r, g, b});
-    }
-}
-
-bool WebView::run() {
-    bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
-    if (loop) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    return !loop;
-}
-
-void WebView::navigate(std::wstring u) {
-    if (!init_done) {
-        url = u;
-    } else {
-        Uri uri{u};
-        webview.Navigate(uri);
-    }
-}
-
-void WebView::preEval(const std::wstring& js) {
-    inject += L"(()=>{" + js + L"})()";
-}
-
-void WebView::eval(const std::wstring& js) {
-    auto result = block(webview.InvokeScriptAsync(
-        L"eval", std::vector<winrt::hstring>({winrt::hstring(js)})));
-
-    // if (debug) {
-    // std::cout << winrt::to_string(result) << std::endl;
-    //}
-}
-
-void WebView::css(const std::wstring& css) {
-    eval(
-        LR"js(
-  (
-    function (css) {
-      if (document.styleSheets.length === 0) {
-        var s = document.createElement('style');
-        s.type = 'text/css';
-        document.head.appendChild(s);
-      }
-      document.styleSheets[0].insertRule(css);
-    }
-  )(')js" +
-        css + L"')");
-}
-
-void WebView::exit() { PostQuitMessage(WM_QUIT); }
-
-void WebView::resize() {
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    Rect bounds((float)rc.left, (float)rc.top, (float)(rc.right - rc.left),
-                (float)(rc.bottom - rc.top));
-    webview.Bounds(bounds);
-}
-
-LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                       LPARAM lparam) {
-    WebView* w =
-        reinterpret_cast<WebView*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-
-    switch (msg) {
-        case WM_SIZE:
-            // WM_SIZE will first fire before the webview finishes loading
-            // init() calls resize(), so this call is only for size changes
-            // after fully loading.
-            if (w != nullptr && w->init_done) {
-                w->resize();
-            }
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-        case WM_CLOSE:
-            DestroyWindow(hwnd);
-            break;
-        case WM_DESTROY:
-            w->exit();
-            break;
-        default:
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-    }
-    return 0;
-}
-#elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
-int WebView::init() {
-    hInt = GetModuleHandle(nullptr);
-    if (hInt == nullptr) {
-        return -1;
+        return converterX.to_bytes(wstr);
     }
 
-    // Initialize Win32 window
-    WNDCLASSEX wc;
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = 0;
-    wc.lpfnWndProc = WndProcedure;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
-    wc.hInstance = hInt;
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszMenuName = nullptr;
-    wc.lpszClassName = L"webview";
-    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+    inline bool WebView::init()
+    {
+        hInt = GetModuleHandle(nullptr);
+        if (hInt == nullptr)
+        {
+            return false;
+        }
 
-    if (!RegisterClassEx(&wc)) {
-        MessageBox(nullptr, L"Call to RegisterClassEx failed!", L"Error!",
-                   NULL);
+        // Initialize Win32 window
+        WNDCLASSEX wc;
+        wc.cbSize = sizeof(WNDCLASSEX);
+        wc.style = 0;
+        wc.lpfnWndProc = WndProcedure;
+        wc.cbClsExtra = 0;
+        wc.cbWndExtra = 0;
+        wc.hInstance = hInt;
+        wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+        wc.lpszMenuName = nullptr;
+        wc.lpszClassName = "soundux-webview";
+        wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
 
-        return 1;
-    }
+        if (!RegisterClassEx(&wc))
+        {
+            return false;
+        }
 
-    hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
-                        nullptr, hInt, nullptr);
+        hwnd = CreateWindow("soundux-webview", title.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 640,
+                            480, nullptr, nullptr, hInt, nullptr);
 
-    if (hwnd == nullptr) {
-        MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
-                   MB_ICONEXCLAMATION | MB_OK);
-        return 1;
-    }
+        if (hwnd == nullptr)
+        {
+            return false;
+        }
 
-    // Set window size
-    RECT r;
-    r.left = 0;
-    r.top = 0;
-    r.right = width;
-    r.bottom = height;
-    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
-                 r.bottom - r.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        // Set window size
+        RECT r;
+        r.left = 0;
+        r.top = 0;
+        r.right = width;
+        r.bottom = height;
+        SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
-    // Used with GetWindowLongPtr
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+        // Used with GetWindowLongPtr
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
-    ShowWindow(hwnd, SW_SHOWDEFAULT);
-    UpdateWindow(hwnd);
-    SetFocus(hwnd);
+        ShowWindow(hwnd, SW_SHOWDEFAULT);
+        UpdateWindow(hwnd);
+        SetFocus(hwnd);
 
-    // Create WebView2 environment
-    HRESULT hr = CreateCoreWebView2Environment(
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [&](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+        HRESULT hr = CreateCoreWebView2Environment(
+            Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>([&](HRESULT result,
+                                                                                     ICoreWebView2Environment *env)
+                                                                                     -> HRESULT {
                 // Create Webview2 controller
                 HRESULT hr = env->CreateCoreWebView2Controller(
-                    hwnd,
-                    Callback<
-                        ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                        [&](HRESULT result,
-                            ICoreWebView2Controller* controller) -> HRESULT {
-                            if (FAILED(result)) {
-                                return result;
-                            }
+                    hwnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                              [&](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
+                                  if (FAILED(result))
+                                  {
+                                      return result;
+                                  }
 
-                            if (controller != nullptr) {
-                                webviewController = controller;
-                                webviewController->get_CoreWebView2(
-                                    &webviewWindow);
-                            }
+                                  if (controller != nullptr)
+                                  {
+                                      webview_controller = controller;
+                                      webview_controller->get_CoreWebView2(&webviewWindow);
+                                  }
 
-                            wil::com_ptr<ICoreWebView2Settings> settings;
-                            webviewWindow->get_Settings(&settings);
-                            if (!debug) {
-                                settings->put_AreDevToolsEnabled(FALSE);
-                            }
+                                  wil::com_ptr<ICoreWebView2Settings> settings;
+                                  webviewWindow->get_Settings(&settings);
+                                  if constexpr (!debug)
+                                  {
+                                      settings->put_AreDevToolsEnabled(0);
+                                  }
 
-                            // Resize WebView
-                            resize();
+                                  resize();
 
-                            webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                                inject.c_str(), nullptr);
+                                  webviewWindow->AddScriptToExecuteOnDocumentCreated(
+                                      charToWString(INVOKE_CODE.data()).c_str(), nullptr);
 
-                            EventRegistrationToken token;
-                            webviewWindow->add_WebMessageReceived(
-                                Callback<
-                                    ICoreWebView2WebMessageReceivedEventHandler>(
-                                    [this](
-                                        ICoreWebView2* webview,
-                                        ICoreWebView2WebMessageReceivedEventArgs*
-                                            args) -> HRESULT {
-                                        // Consider args->get_WebMessageAsJson?
-                                        LPWSTR messageRaw;
-                                        args->TryGetWebMessageAsString(
-                                            &messageRaw);
-                                        if (js_callback) {
-                                            std::wstring message(messageRaw);
-                                            js_callback(*this, message);
-                                        }
-                                        CoTaskMemFree(messageRaw);
-                                        return S_OK;
-                                    })
-                                    .Get(),
-                                &token);
+                                  EventRegistrationToken token;
+                                  webviewWindow->add_WebMessageReceived(
+                                      Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                                          [this](ICoreWebView2 *webview,
+                                                 ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                                              LPWSTR messageRaw;
+                                              args->TryGetWebMessageAsString(&messageRaw);
+                                              std::wstring message(messageRaw);
 
-                            // Done initialization, set properties
-                            init_done = true;
+                                              if (!callbacks.empty())
+                                              {
+                                                  nlohmann::json j =
+                                                      nlohmann::json::parse(ws2s(message), nullptr, false);
+                                                  if (!j.is_discarded())
+                                                  {
+                                                      if (j.find("func") != j.end() && j.find("param") != j.end() &&
+                                                          j["func"].is_string() && j["param"].is_array())
+                                                      {
+                                                          auto rtn = callbacks.at(j["func"].get<std::string>())(
+                                                              *this, j["param"].get<std::vector<std::string>>());
+                                                          eval("function getLastResult() { return \"" + rtn + "\";}");
+                                                      }
+                                                  }
+                                              }
+                                              CoTaskMemFree(messageRaw);
+                                              return S_OK;
+                                          })
+                                          .Get(),
+                                      &token);
 
-                            setTitle(title);
-                            if (fullscreen) {
-                                setFullscreen(true);
-                            }
-                            setBgColor(bgR, bgG, bgB, bgA);
-                            navigate(url);
+                                  webviewWindow->AddScriptToExecuteOnDocumentCreated(
+                                      L"console.log('Ready!');",
+                                      Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
+                                          [this](HRESULT error, PCWSTR id) -> HRESULT {
+                                              ready = true;
+                                              return S_OK;
+                                          })
+                                          .Get());
 
-                            return S_OK;
-                        })
-                        .Get());
+                                  init_done = true;
+
+                                  setTitle(title);
+                                  setBackgroundColor(background_color.r, background_color.g, background_color.b,
+                                                     background_color.a);
+                                  navigate(url);
+
+                                  run_mutex.lock();
+                                  for (const auto &fn : run_on_init_done)
+                                  {
+                                      fn();
+                                  }
+                                  run_on_init_done.clear();
+                                  run_mutex.unlock();
+
+                                  return S_OK;
+                              })
+                              .Get());
 
                 return hr;
-            })
-            .Get());
+            }).Get());
 
-    if (FAILED(hr)) {
-        return -1;
+        return !FAILED(hr);
     }
 
-    return 0;
-}
-
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::wstring t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        SetWindowText(hwnd, t.c_str());
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback)
+    {
+        callbacks.insert({name, callback});
+        eval("function getLastResult() {}");
+        eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+             name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
     }
-}
 
-void WebView::setFullscreen(bool fs) {
-    // TODO: implement
-}
-
-void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    if (!init_done) {
-        bgR = r;
-        bgG = g;
-        bgB = b;
-        bgA = a;
-    } else {
-        // TODO
+    inline void WebView::setTitle(const std::string &t)
+    {
+        if (!init_done)
+        {
+            title = t;
+        }
+        else
+        {
+            SetWindowText(hwnd, t.c_str());
+        }
     }
-}
 
-bool WebView::run() {
-    bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
-    if (loop) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+    inline void WebView::setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    {
+        if (!init_done)
+        {
+            background_color = {r, g, b, a};
+        }
     }
-    return !loop;
-}
 
-void WebView::navigate(std::wstring u) {
-    if (!init_done) {
-        url = u;
-    } else {
-        webviewWindow->Navigate(u.c_str());
+    inline bool WebView::run()
+    {
+        bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
+        if (loop)
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        return !loop;
     }
-}
 
-void WebView::preEval(const std::wstring& js) {
-    inject += L"(()=>{" + js + L"})()";
-}
-
-void WebView::eval(const std::wstring& js) {
-    // Schedule an async task to get the document URL
-    webviewWindow->ExecuteScript(
-        js.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-            [](HRESULT errorCode, LPCWSTR resultObjectAsJson) -> HRESULT {
-                LPCWSTR URL = resultObjectAsJson;
-                // doSomethingWithURL(URL);
-                return S_OK;
-            })
-            .Get());
-
-    // if (debug) {
-    // std::cout << winrt::to_string(result) << std::endl;
-    //}
-}
-
-void WebView::css(const std::wstring& css) {
-    eval(
-        LR"js(
-  (
-    function (css) {
-      if (document.styleSheets.length === 0) {
-        var s = document.createElement('style');
-        s.type = 'text/css';
-        document.head.appendChild(s);
-      }
-      document.styleSheets[0].insertRule(css);
+    inline void WebView::navigate(const std::string &url)
+    {
+        if (!init_done)
+        {
+            this->url = url;
+        }
+        else
+        {
+            webviewWindow->Navigate(charToWString(url.c_str()).c_str());
+        }
     }
-  )(')js" +
-        css + L"')");
-}
 
-void WebView::exit() { PostQuitMessage(WM_QUIT); }
+    inline void WebView::eval(const std::string &code)
+    {
+        if (!init_done)
+        {
+            run_mutex.lock();
+            run_on_init_done.push_back([=] { eval(code); });
+            run_mutex.unlock();
+        }
+        else
+        {
 
-void WebView::resize() {
-    RECT rc;
-    GetClientRect(hwnd, &rc);
-    webviewController->put_Bounds(rc);
-}
+            if (ready)
+            {
+                webviewWindow->ExecuteScript(
+                    charToWString(code.c_str()).c_str(),
+                    Callback<ICoreWebView2ExecuteScriptCompletedHandler>([](HRESULT errorCode,
+                                                                            LPCWSTR resultObjectAsJson) -> HRESULT {
+                        return S_OK;
+                    }).Get());
+            }
+            else
+            {
+                webviewWindow->AddScriptToExecuteOnDocumentCreated(
+                    charToWString(code.c_str()).c_str(),
+                    Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
+                        [this](HRESULT error, PCWSTR id) -> HRESULT { return S_OK; })
+                        .Get());
+            }
+        }
+    }
 
-LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                       LPARAM lparam) {
-    WebView* w =
-        reinterpret_cast<WebView*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    inline void WebView::exit()
+    {
+        PostQuitMessage(WM_QUIT);
+    }
 
-    switch (msg) {
+    inline void WebView::resize()
+    {
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        webview_controller->put_Bounds(rc);
+    }
+
+    inline LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+    {
+        auto *w = reinterpret_cast<WebView *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
+        switch (msg)
+        {
         case WM_SIZE:
-            // WM_SIZE will first fire before the webview finishes loading
-            // init() calls resize(), so this call is only for size changes
-            // after fully loading.
-            if (w != nullptr && w->init_done) {
+            if (w != nullptr && w->init_done)
+            {
                 w->resize();
             }
             return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -648,386 +389,196 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
             break;
         default:
             return DefWindowProc(hwnd, msg, wparam, lparam);
+        }
+        return 0;
     }
-    return 0;
-}
-#elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
-int WebView::init() {
-    // Initialize autorelease pool
-    pool = [NSAutoreleasePool new];
+#elif defined(WEBVIEW_GTK)
+    inline bool WebView::init()
+    {
+        if (gtk_init_check(nullptr, nullptr) == FALSE)
+        {
+            return false;
+        }
 
-    // Window style: titled, closable, minimizable
-    uint style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-                 NSWindowStyleMaskMiniaturizable;
+        window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-    // Set window to be resizable
-    if (resizable) {
-        style |= NSWindowStyleMaskResizable;
+        if (resizable)
+        {
+            gtk_window_set_default_size(GTK_WINDOW(window), width, height); // NOLINT
+        }
+        else
+        {
+            gtk_widget_set_size_request(window, width, height);
+        }
+
+        gtk_window_set_resizable(GTK_WINDOW(window), resizable);         // NOLINT
+        gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER); // NOLINT
+
+        GtkWidget *scrolled_window = gtk_scrolled_window_new(nullptr, nullptr);
+        gtk_container_add(GTK_CONTAINER(window), scrolled_window); // NOLINT
+
+        WebKitUserContentManager *cm = webkit_user_content_manager_new();
+        webkit_user_content_manager_register_script_message_handler(cm, "external");
+
+        // NOLINTNEXTLINE
+        g_signal_connect(cm, "script-message-received::external", G_CALLBACK(externalMessageReceived), this);
+
+        webview = webkit_web_view_new_with_user_content_manager(cm);
+        g_signal_connect(G_OBJECT(webview), "load-changed", G_CALLBACK(webViewLoadChanged), this); // NOLINT
+        gtk_container_add(GTK_CONTAINER(scrolled_window), webview);                                // NOLINT
+
+        g_signal_connect(window, "destroy", G_CALLBACK(destroyWindow), this); // NOLINT
+
+        if constexpr (debug)
+        {
+            WebKitSettings *settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(webview)); // NOLINT
+            webkit_settings_set_enable_write_console_messages_to_stdout(settings, true);
+            webkit_settings_set_enable_developer_extras(settings, true);
+        }
+        else
+        {
+            g_signal_connect(G_OBJECT(webview), "context-menu", G_CALLBACK(webViewContextMenu), nullptr); // NOLINT
+        }
+
+        // NOLINTNEXTLINE
+        webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), INVOKE_CODE.data(), nullptr, nullptr, nullptr);
+
+        init_done = true;
+
+        setTitle(title);
+        setBackgroundColor(background_color.r, background_color.g, background_color.b, background_color.a);
+        navigate(url);
+
+        gtk_widget_grab_focus(GTK_WIDGET(webview)); // NOLINT
+        gtk_widget_show_all(window);
+
+        return true;
     }
 
-    // Initialize Cocoa window
-    window = [[NSWindow alloc]
-        // Initial window size
-        initWithContentRect:NSMakeRect(0, 0, width, height)
-                  // Window style
-                  styleMask:style
-                    backing:NSBackingStoreBuffered
-                      defer:NO];
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback)
+    {
+        callbacks.insert({name, callback});
+        eval("function getLastResult() {}");
+        eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+             name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+    }
 
-    // Minimum window size
-    [window setContentMinSize:NSMakeSize(width, height)];
+    inline void WebView::setTitle(const std::string &title)
+    {
+        if (!init_done)
+        {
+            this->title = title;
+        }
+        else
+        {
+            gtk_window_set_title(GTK_WINDOW(window), title.c_str()); // NOLINT
+        }
+    }
 
-    // Position window in center of screen
-    [window center];
+    inline void WebView::setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    {
+        if (!init_done)
+        {
+            background_color = {r, g, b, a};
+        }
+        else
+        {
+            GdkRGBA color = {r / 255.0, g / 255.0, b / 255.0, a / 255.0};
+            webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(webview), &color); // NOLINT
+        }
+    }
 
-    // Initialize WKWebView
-    WKWebViewConfiguration* config = [WKWebViewConfiguration new];
-    WKPreferences* prefs = [config preferences];
-    [prefs setJavaScriptCanOpenWindowsAutomatically:NO];
-    [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+    inline bool WebView::run() // NOLINT
+    {
+        gtk_main_iteration_do(true);
+        return should_exit;
+    }
 
-    WKUserContentController* controller = [config userContentController];
-    // Add inject script
-    WKUserScript* userScript = [WKUserScript alloc];
-    [userScript initWithSource:[NSString stringWithUTF8String:inject.c_str()]
-                 injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-              forMainFrameOnly:NO];
-    [controller addUserScript:userScript];
+    inline void WebView::navigate(const std::string &url)
+    {
+        if (!init_done)
+        {
+            this->url = url;
+        }
+        else
+        {
+            webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webview), url.c_str()); // NOLINT
+        }
+    }
 
-    webview = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
+    inline void WebView::eval(const std::string &code)
+    {
+        while (!ready)
+        {
+            g_main_context_iteration(nullptr, TRUE);
+        }
+        javascript_busy = true;
 
-    // Add delegate methods manually in order to capture "this"
-    class_replaceMethod(
-        [WindowDelegate class], @selector(windowWillClose:),
-        imp_implementationWithBlock(
-            [=](id self, SEL cmd, id notification) { this->exit(); }),
-        "v@:@");
+        // NOLINTNEXTLINE
+        webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), code.c_str(), nullptr, webViewEvalFinished, this);
 
-    class_replaceMethod(
-        [WindowDelegate class],
-        @selector(userContentController:didReceiveScriptMessage:),
-        imp_implementationWithBlock(
-            [=](id self, SEL cmd, WKScriptMessage* scriptMessage) {
-                if (this->js_callback) {
-                    id body = [scriptMessage body];
-                    if (![body isKindOfClass:[NSString class]]) {
-                        return;
-                    }
+        while (javascript_busy)
+        {
+            g_main_context_iteration(nullptr, TRUE); // NOLINT
+        }
+    }
 
-                    std::string msg = [body UTF8String];
-                    this->js_callback(*this, msg);
+    inline void WebView::exit()
+    {
+        should_exit = true;
+    }
+
+    inline void WebView::externalMessageReceived([[maybe_unused]] WebKitUserContentManager *manager,
+                                                 WebKitJavascriptResult *result, gpointer arg)
+    {
+        auto *webView = static_cast<WebView *>(arg);
+        if (!webView->callbacks.empty())
+        {
+            JSCValue *value = webkit_javascript_result_get_js_value(result);
+            std::string str = std::string(jsc_value_to_string(value));
+
+            nlohmann::json j = nlohmann::json::parse(str, nullptr, false);
+            if (!j.is_discarded())
+            {
+                if (j.find("func") != j.end() && j.find("param") != j.end() && j["func"].is_string() &&
+                    j["param"].is_array())
+                {
+                    auto rtn = webView->callbacks.at(j["func"].get<std::string>())(
+                        *webView, j["param"].get<std::vector<std::string>>());
+                    webView->eval("function getLastResult() { return \"" + rtn + "\";}");
                 }
-            }),
-        "v@:@");
-
-    WindowDelegate* delegate = [WindowDelegate alloc];
-    [controller addScriptMessageHandler:delegate name:@"webview"];
-    // Set delegate to window
-    [window setDelegate:delegate];
-
-    // Initialize application
-    [NSApplication sharedApplication];
-    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-
-    // Sets the app as the active app
-    [NSApp activateIgnoringOtherApps:YES];
-
-    // Add webview to window
-    [window setContentView:webview];
-
-    // Display window
-    [window makeKeyAndOrderFront:nil];
-
-    // Done initialization, set properties
-    init_done = true;
-
-    setTitle(title);
-    if (fullscreen) {
-        setFullscreen(true);
-    }
-    setBgColor(bgR, bgG, bgB, bgA);
-    navigate(url);
-
-    return 0;
-}
-
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::string t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        [window setTitle:[NSString stringWithUTF8String:t.c_str()]];
-    }
-}
-
-void WebView::setFullscreen(bool fs) {
-    if (!init_done) {
-        fullscreen = fs;
-    } else {
-        // TODO: replace toggle with set
-        [window toggleFullScreen:nil];
-    }
-}
-
-void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    if (!init_done) {
-        bgR = r;
-        bgG = g;
-        bgB = b;
-        bgA = a;
-    } else {
-        [window setBackgroundColor:[NSColor colorWithCalibratedRed:r / 255.0
-                                                             green:g / 255.0
-                                                              blue:b / 255.0
-                                                             alpha:a / 255.0]];
-    }
-}
-
-bool WebView::run() {
-    NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                        untilDate:[NSDate distantFuture]
-                                           inMode:NSDefaultRunLoopMode
-                                          dequeue:true];
-    if (event) {
-        [NSApp sendEvent:event];
-    }
-
-    return should_exit;
-}
-
-void WebView::navigate(std::string u) {
-    if (!init_done) {
-        url = u;
-    } else {
-        [webview
-            loadRequest:[NSURLRequest
-                            requestWithURL:
-                                [NSURL URLWithString:[NSString
-                                                         stringWithUTF8String:
-                                                             u.c_str()]]]];
-    }
-}
-
-void WebView::preEval(const std::string& js) {
-    inject += "(()=>{" + js + "})()";
-}
-
-void WebView::eval(const std::string& js) {
-    [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()]
-              completionHandler:nil];
-}
-
-void WebView::css(const std::string& css) {
-    eval(R"js(
-    (
-      function (css) {
-        if (document.styleSheets.length === 0) {
-          var s = document.createElement('style');
-          s.type = 'text/css';
-          document.head.appendChild(s);
+            }
         }
-        document.styleSheets[0].insertRule(css);
-      }
-    )(')js" +
-         css + "')");
-}
-
-void WebView::exit() {
-    // Distinguish window closing with app exiting
-    should_exit = true;
-    [NSApp terminate:nil];
-}
-
-#elif defined(WEBVIEW_GTK)  // WEBVIEW_MAC
-int WebView::init() {
-    if (gtk_init_check(0, NULL) == FALSE) {
-        return -1;
     }
 
-    // Initialize GTK window
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-    if (resizable) {
-        gtk_window_set_default_size(GTK_WINDOW(window), width, height);
-    } else {
-        gtk_widget_set_size_request(window, width, height);
+    inline void WebView::webViewEvalFinished([[maybe_unused]] GObject *object, [[maybe_unused]] GAsyncResult *result,
+                                             gpointer arg)
+    {
+        static_cast<WebView *>(arg)->javascript_busy = false;
     }
 
-    gtk_window_set_resizable(GTK_WINDOW(window), resizable);
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-
-    // Add scrolling container
-    GtkWidget* scroller = gtk_scrolled_window_new(nullptr, nullptr);
-    gtk_container_add(GTK_CONTAINER(window), scroller);
-
-    // Content manager
-    WebKitUserContentManager* cm = webkit_user_content_manager_new();
-    webkit_user_content_manager_register_script_message_handler(cm, "external");
-    g_signal_connect(cm, "script-message-received::external",
-                     G_CALLBACK(external_message_received_cb), this);
-
-    // WebView
-    webview = webkit_web_view_new_with_user_content_manager(cm);
-    g_signal_connect(G_OBJECT(webview), "load-changed",
-                     G_CALLBACK(webview_load_changed_cb), this);
-    gtk_container_add(GTK_CONTAINER(scroller), webview);
-
-    g_signal_connect(window, "destroy", G_CALLBACK(destroyWindowCb), this);
-    // g_signal_connect(webview, "close", G_CALLBACK(closeWebViewCb), window);
-
-    // Dev Tools if debug
-    if (debug) {
-        WebKitSettings* settings =
-            webkit_web_view_get_settings(WEBKIT_WEB_VIEW(webview));
-        webkit_settings_set_enable_write_console_messages_to_stdout(settings,
-                                                                    true);
-        webkit_settings_set_enable_developer_extras(settings, true);
-    } else {
-        g_signal_connect(G_OBJECT(webview), "context-menu",
-                         G_CALLBACK(webview_context_menu_cb), nullptr);
-    }
-
-    webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), inject.c_str(),
-                                   NULL, NULL, NULL);
-
-    // Done initialization, set properties
-    init_done = true;
-
-    setTitle(title);
-    if (fullscreen) {
-        setFullscreen(true);
-    }
-    setBgColor(bgR, bgG, bgB, bgA);
-    navigate(url);
-
-    // Finish
-    gtk_widget_grab_focus(GTK_WIDGET(webview));
-    gtk_widget_show_all(window);
-
-    return 0;
-}
-
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::string t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        gtk_window_set_title(GTK_WINDOW(window), t.c_str());
-    }
-}
-
-void WebView::setFullscreen(bool fs) {
-    if (!init_done) {
-        fullscreen = fs;
-    } else if (fs) {
-        gtk_window_fullscreen(GTK_WINDOW(window));
-    } else {
-        gtk_window_unfullscreen(GTK_WINDOW(window));
-    }
-}
-
-void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    if (!init_done) {
-        bgR = r;
-        bgG = g;
-        bgB = b;
-        bgA = a;
-    } else {
-        GdkRGBA color = {r / 255.0, g / 255.0, b / 255.0, a / 255.0};
-        webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(webview), &color);
-    }
-}
-
-bool WebView::run() {
-    gtk_main_iteration_do(true);
-    return should_exit;
-}
-
-void WebView::navigate(std::string u) {
-    if (!init_done) {
-        url = u;
-    } else {
-        webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webview), u.c_str());
-    }
-}
-
-void WebView::preEval(const std::string& js) {
-    inject += "(()=>{" + js + "})()";
-}
-
-void WebView::eval(const std::string& js) {
-    while (!ready) {
-        g_main_context_iteration(NULL, TRUE);
-    }
-    js_busy = true;
-    webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), js.c_str(), NULL,
-                                   webview_eval_finished, this);
-    while (js_busy) {
-        g_main_context_iteration(NULL, TRUE);
-    }
-}
-
-void WebView::css(const std::string& css) {
-    eval(R"js(
-    (
-      function (css) {
-        if (document.styleSheets.length === 0) {
-          var s = document.createElement('style');
-          s.type = 'text/css';
-          document.head.appendChild(s);
+    inline void WebView::webViewLoadChanged([[maybe_unused]] WebKitWebView *webview, WebKitLoadEvent event,
+                                            gpointer arg)
+    {
+        if (event == WEBKIT_LOAD_FINISHED)
+        {
+            static_cast<WebView *>(arg)->ready = true;
         }
-        document.styleSheets[0].insertRule(css);
-      }
-    )(')js" +
-         css + "')");
-}
-
-void WebView::exit() { should_exit = true; }
-
-void WebView::external_message_received_cb(WebKitUserContentManager* m,
-                                           WebKitJavascriptResult* r,
-                                           gpointer arg) {
-    WebView* w = static_cast<WebView*>(arg);
-    if (w->js_callback) {
-        JSCValue* value = webkit_javascript_result_get_js_value(r);
-        std::string str = std::string(jsc_value_to_string(value));
-        w->js_callback(*w, str);
     }
-}
 
-void WebView::webview_eval_finished(GObject* object, GAsyncResult* result,
-                                    gpointer arg) {
-    static_cast<WebView*>(arg)->js_busy = false;
-}
-
-void WebView::webview_load_changed_cb(WebKitWebView* webview,
-                                      WebKitLoadEvent event, gpointer arg) {
-    if (event == WEBKIT_LOAD_FINISHED) {
-        static_cast<WebView*>(arg)->ready = true;
+    inline void WebView::destroyWindow([[maybe_unused]] GtkWidget *widget, gpointer arg)
+    {
+        static_cast<WebView *>(arg)->exit();
     }
-}
 
-void WebView::destroyWindowCb(GtkWidget* widget, gpointer arg) {
-    static_cast<WebView*>(arg)->exit();
-}
+    inline gboolean WebView::webViewContextMenu([[maybe_unused]] WebKitWebView *webview,
+                                                [[maybe_unused]] GtkWidget *default_menu,
+                                                [[maybe_unused]] WebKitHitTestResult *hit_test_result,
+                                                [[maybe_unused]] gboolean triggered_with_keyboard,
+                                                [[maybe_unused]] gpointer user_data)
+    {
+        return TRUE;
+    }
+#endif // WEBVIEW_GTK
 
-// gboolean WebView::closeWebViewCb(WebKitWebView *webView, GtkWidget *window) {
-//   gtk_widget_destroy(window);
-//   return TRUE;
-// }
-
-gboolean WebView::webview_context_menu_cb(WebKitWebView* webview,
-                                          GtkWidget* default_menu,
-                                          WebKitHitTestResult* hit_test_result,
-                                          gboolean triggered_with_keyboard,
-                                          gpointer userdata) {
-    // Always hide context menu if not debug
-    return TRUE;
-}
-#endif                      // WEBVIEW_GTK
-
-}  // namespace wv
-
-#endif  // WEBVIEW_H
+} // namespace wv

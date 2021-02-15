@@ -1,15 +1,23 @@
 cmake_minimum_required (VERSION 3.8)
 project (webview)
 
-if(APPLE)
-	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_MAC=1")
-	find_library(COCOA_LIBRARY Cocoa)
-	find_library(WEBKIT_LIBRARY Webkit)
-	set(WEBVIEW_LIBS ${COCOA_LIBRARY} ${WEBKIT_LIBRARY})
-	set(WEBVIEW_COMPILE_OPTS "-ObjC++")
-elseif(WIN32)
-	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_WIN=1")
-	set(WEBVIEW_LIBS "WindowsApp.lib user32.lib kernel32.lib")
+if(WIN32)
+	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_EDGE=1")
+	
+	# Thanks to flutter for this, Fuck you Microsoft for this abomination!
+	find_program(NUGET_EXE NAMES nuget)
+	if(NOT NUGET_EXE)
+		message("NUGET.EXE not found.")
+		message(FATAL_ERROR "Please install this executable, and run CMake again.")
+	endif()
+
+	exec_program(${NUGET_EXE}
+    	ARGS install "Microsoft.Web.WebView2" -Version 1.0.705.50 -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+	exec_program(${NUGET_EXE}
+    	ARGS install "Microsoft.Windows.ImplementationLibrary" -Version 1.0.210204.1 -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+	
+	set(WEBVIEW_LIBS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
+	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
 else()
 	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_GTK=1")
 	find_package(PkgConfig REQUIRED)
