@@ -545,7 +545,7 @@ namespace wv
                 {
                     auto rtn = webView->callbacks.at(j["func"].get<std::string>())(
                         *webView, j["param"].get<std::vector<std::string>>());
-                    webView->eval("function getLastResult() { return \"" + rtn + "\";}");
+                    webView->eval("function getLastResult() { return `" + rtn + "`;}");
                 }
             }
         }
