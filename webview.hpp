@@ -99,12 +99,12 @@ namespace wv
         bool run();
 
         void css(const std::string &css);
-        void eval(const std::string &code);
         void navigate(const std::string &url);
+        void eval(const std::string &code, bool wait_for_ready = false);
 
         void setTitle(const std::string &t);
         void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-        void addCallback(const std::string &name, const callback_t &callback);
+        void addCallback(const std::string &name, const callback_t &callback, bool is_object = false);
     };
 
 #if defined(WEBVIEW_EDGE)
@@ -275,12 +275,21 @@ namespace wv
         return !FAILED(hr);
     }
 
-    inline void WebView::addCallback(const std::string &name, const callback_t &callback)
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
         eval("function getLastResult() {}");
-        eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-             name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+        if (is_object)
+        {
+            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+                 name +
+                 R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getLastResult()); })");
+        }
+        else
+        {
+            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+        }
     }
 
     inline void WebView::setTitle(const std::string &t)
@@ -311,7 +320,7 @@ namespace wv
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        return !loop;
+        return loop;
     }
 
     inline void WebView::navigate(const std::string &url)
@@ -326,7 +335,7 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code)
+    inline void WebView::eval(const std::string &code, bool wait_for_ready)
     {
         if (!init_done)
         {
@@ -336,8 +345,7 @@ namespace wv
         }
         else
         {
-
-            if (ready)
+            if (wait_for_ready && ready)
             {
                 webviewWindow->ExecuteScript(
                     charToWString(code.c_str()).c_str(),
@@ -455,12 +463,21 @@ namespace wv
         return true;
     }
 
-    inline void WebView::addCallback(const std::string &name, const callback_t &callback)
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
         eval("function getLastResult() {}");
-        eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-             name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+        if (is_object)
+        {
+            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+                 name +
+                 R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getLastResult()); })");
+        }
+        else
+        {
+            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+        }
     }
 
     inline void WebView::setTitle(const std::string &title)
@@ -491,7 +508,7 @@ namespace wv
     inline bool WebView::run() // NOLINT
     {
         gtk_main_iteration_do(true);
-        return should_exit;
+        return !should_exit;
     }
 
     inline void WebView::navigate(const std::string &url)
@@ -506,9 +523,9 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code)
+    inline void WebView::eval(const std::string &code, bool wait_for_ready)
     {
-        while (!ready)
+        while (!init_done || (wait_for_ready && !ready))
         {
             g_main_context_iteration(nullptr, TRUE);
         }
