@@ -51,6 +51,7 @@ namespace wv
 
         bool init_done = false;
         std::map<std::string, callback_t> callbacks;
+        std::function<void(int, int)> onResizeCallback;
 
         struct
         {
@@ -86,6 +87,7 @@ namespace wv
         static gboolean webViewContextMenu(WebKitWebView *webview, GtkWidget *default_menu,
                                            WebKitHitTestResult *hit_test_result, gboolean triggered_with_keyboard,
                                            gpointer user_data);
+        static gboolean webViewResize(WebKitWebView *webview, GdkEvent *event, gpointer user_data);
 #endif
 
       public:
@@ -104,8 +106,14 @@ namespace wv
 
         void setTitle(const std::string &t);
         void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+        void setResizeCallback(const std::function<void(int, int)> &callback);
         void addCallback(const std::string &name, const callback_t &callback, bool is_object = false);
     };
+
+    inline void WebView::setResizeCallback(const std::function<void(int, int)> &callback)
+    {
+        onResizeCallback = callback;
+    }
 
 #if defined(WEBVIEW_EDGE)
     // God please forgive me my sins, writing code on windows is worse than hell
@@ -375,6 +383,11 @@ namespace wv
         RECT rc;
         GetClientRect(hwnd, &rc);
         webview_controller->put_Bounds(rc);
+
+        if (onResizeCallback)
+        {
+            onResizeCallback(gtkEvent->width, gtkEvent->height);
+        }
     }
 
     inline LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -447,6 +460,8 @@ namespace wv
         {
             g_signal_connect(G_OBJECT(webview), "context-menu", G_CALLBACK(webViewContextMenu), nullptr); // NOLINT
         }
+
+        g_signal_connect(GTK_WINDOW(window), "configure-event", G_CALLBACK(webViewResize), this); // NOLINT
 
         // NOLINTNEXTLINE
         webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), INVOKE_CODE.data(), nullptr, nullptr, nullptr);
@@ -595,6 +610,19 @@ namespace wv
                                                 [[maybe_unused]] gpointer user_data)
     {
         return TRUE;
+    }
+
+    inline gboolean WebView::webViewResize([[maybe_unused]] WebKitWebView *view, GdkEvent *event, gpointer user_data)
+    {
+        auto *gtkEvent = reinterpret_cast<GdkEventConfigure *>(event);
+        auto *webview = reinterpret_cast<WebView *>(user_data);
+
+        if (webview && webview->onResizeCallback)
+        {
+            webview->onResizeCallback(gtkEvent->width, gtkEvent->height);
+        }
+
+        return FALSE;
     }
 #endif // WEBVIEW_GTK
 
