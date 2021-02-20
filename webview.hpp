@@ -194,88 +194,89 @@ namespace wv
                                                                                      -> HRESULT {
                 // Create Webview2 controller
                 HRESULT hr = env->CreateCoreWebView2Controller(
-                    hwnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                              [&](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
-                                  if (FAILED(result))
-                                  {
-                                      return result;
-                                  }
+                    hwnd,
+                    Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                        [&](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
+                            if (FAILED(result))
+                            {
+                                return result;
+                            }
 
-                                  if (controller != nullptr)
-                                  {
-                                      webview_controller = controller;
-                                      webview_controller->get_CoreWebView2(&webviewWindow);
-                                  }
+                            if (controller != nullptr)
+                            {
+                                webview_controller = controller;
+                                webview_controller->get_CoreWebView2(&webviewWindow);
+                            }
 
-                                  wil::com_ptr<ICoreWebView2Settings> settings;
-                                  webviewWindow->get_Settings(&settings);
-                                  if constexpr (!debug)
-                                  {
-                                      settings->put_AreDevToolsEnabled(0);
-                                  }
+                            wil::com_ptr<ICoreWebView2Settings> settings;
+                            webviewWindow->get_Settings(&settings);
+                            if constexpr (!debug)
+                            {
+                                settings->put_AreDevToolsEnabled(0);
+                            }
 
-                                  resize();
+                            resize();
 
-                                  webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                                      charToWString(INVOKE_CODE.data()).c_str(), nullptr);
+                            webviewWindow->AddScriptToExecuteOnDocumentCreated(
+                                charToWString(INVOKE_CODE.data()).c_str(), nullptr);
 
-                                  EventRegistrationToken token;
-                                  webviewWindow->add_WebMessageReceived(
-                                      Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                                          [this](ICoreWebView2 *webview,
-                                                 ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
-                                              LPWSTR messageRaw;
-                                              args->TryGetWebMessageAsString(&messageRaw);
-                                              std::wstring message(messageRaw);
+                            EventRegistrationToken token;
+                            webviewWindow->add_WebMessageReceived(
+                                Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                                    [this](ICoreWebView2 *webview,
+                                           ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                                        LPWSTR messageRaw;
+                                        args->TryGetWebMessageAsString(&messageRaw);
+                                        std::wstring message(messageRaw);
 
-                                              if (!callbacks.empty())
-                                              {
-                                                  nlohmann::json j =
-                                                      nlohmann::json::parse(ws2s(message), nullptr, false);
-                                                  if (!j.is_discarded())
-                                                  {
-                                                      if (j.find("func") != j.end() && j.find("param") != j.end() &&
-                                                          j["func"].is_string() && j["param"].is_array())
-                                                      {
-                                                          auto rtn = callbacks.at(j["func"].get<std::string>())(
-                                                              *this, j["param"].get<std::vector<std::string>>());
-                                                          eval("function getLastResult() { return \"" + rtn + "\";}");
-                                                      }
-                                                  }
-                                              }
-                                              CoTaskMemFree(messageRaw);
-                                              return S_OK;
-                                          })
-                                          .Get(),
-                                      &token);
+                                        if (!callbacks.empty())
+                                        {
+                                            nlohmann::json j = nlohmann::json::parse(ws2s(message), nullptr, false);
+                                            if (!j.is_discarded())
+                                            {
+                                                if (j.find("func") != j.end() && j.find("param") != j.end() &&
+                                                    j.at("func").is_string() && j.at("param").is_array())
+                                                {
+                                                    auto rtn = callbacks.at(j["func"].get<std::string>())(
+                                                        *this, j["param"].get<std::vector<std::string>>());
+                                                    eval("function getResultFor" + j.at("func").get<std::string>() +
+                                                         "() { return `" + rtn + "`;}");
+                                                }
+                                            }
+                                        }
+                                        CoTaskMemFree(messageRaw);
+                                        return S_OK;
+                                    })
+                                    .Get(),
+                                &token);
 
-                                  webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                                      L"console.log('Ready!');",
-                                      Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
-                                          [this](HRESULT error, PCWSTR id) -> HRESULT {
-                                              ready = true;
-                                              return S_OK;
-                                          })
-                                          .Get());
+                            webviewWindow->AddScriptToExecuteOnDocumentCreated(
+                                L"console.log('Ready!');",
+                                Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
+                                    [this](HRESULT error, PCWSTR id) -> HRESULT {
+                                        ready = true;
+                                        return S_OK;
+                                    })
+                                    .Get());
 
-                                  init_done = true;
+                            init_done = true;
 
-                                  setTitle(title);
-                                  setBackgroundColor(background_color.r, background_color.g, background_color.b,
-                                                     background_color.a);
-                                  navigate(url);
+                            setTitle(title);
+                            setBackgroundColor(background_color.r, background_color.g, background_color.b,
+                                               background_color.a);
+                            navigate(url);
 
-                                  run_mutex.lock();
-                                  for (const auto &fn : run_on_init_done)
-                                  {
-                                      fn();
-                                  }
-                                  run_on_init_done.clear();
-                                  run_mutex.unlock();
+                            run_mutex.lock();
+                            for (const auto &fn : run_on_init_done)
+                            {
+                                fn();
+                            }
+                            run_on_init_done.clear();
+                            run_mutex.unlock();
 
-                                  return S_OK;
-                              })
-                              .Get());
+                            return S_OK;
+                        })
+                        .Get());
 
                 return hr;
             }).Get());
@@ -286,17 +287,17 @@ namespace wv
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
-        eval("function getLastResult() {}");
+        eval("function getResultFor" + name + "() {}");
         if (is_object)
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name +
-                 R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getLastResult()); })");
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getResultFor)" +
+                 name + "()); }");
         }
         else
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); }");
         }
     }
 
@@ -486,12 +487,12 @@ namespace wv
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
                  name + R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getResultFor)" +
-                 name + "()); })");
+                 name + "()); }");
         }
         else
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); })");
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); }");
         }
     }
 
@@ -540,6 +541,7 @@ namespace wv
 
     inline void WebView::eval(const std::string &code, bool wait_for_ready)
     {
+        printf("%s\n", code.c_str());
         while (!init_done || (wait_for_ready && !ready))
         {
             g_main_context_iteration(nullptr, TRUE);
