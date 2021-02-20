@@ -481,17 +481,17 @@ namespace wv
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
-        eval("function getLastResult() {}");
+        eval("function getResultFor" + name + "() {}");
         if (is_object)
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name +
-                 R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getLastResult()); })");
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getResultFor)" +
+                 name + "()); })");
         }
         else
         {
             eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getLastResult(); })");
+                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); })");
         }
     }
 
@@ -572,12 +572,13 @@ namespace wv
             nlohmann::json j = nlohmann::json::parse(str, nullptr, false);
             if (!j.is_discarded())
             {
-                if (j.find("func") != j.end() && j.find("param") != j.end() && j["func"].is_string() &&
-                    j["param"].is_array())
+                if (j.find("func") != j.end() && j.find("param") != j.end() && j.at("func").is_string() &&
+                    j.at("param").is_array())
                 {
                     auto rtn = webView->callbacks.at(j["func"].get<std::string>())(
                         *webView, j["param"].get<std::vector<std::string>>());
-                    webView->eval("function getLastResult() { return `" + rtn + "`;}");
+                    webView->eval("function getResultFor" + j.at("func").get<std::string>() + "() { return `" + rtn +
+                                  "`;}");
                 }
             }
         }
