@@ -541,7 +541,6 @@ namespace wv
 
     inline void WebView::eval(const std::string &code, bool wait_for_ready)
     {
-        printf("%s\n", code.c_str());
         while (!init_done || (wait_for_ready && !ready))
         {
             g_main_context_iteration(nullptr, TRUE);
