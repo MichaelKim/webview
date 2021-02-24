@@ -2,6 +2,7 @@
 
 // Headers
 #include "lib/json/single_include/nlohmann/json.hpp"
+#include <fmt/format.h>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -223,25 +224,32 @@ namespace wv
                             EventRegistrationToken token;
                             webviewWindow->add_WebMessageReceived(
                                 Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                                    [this](ICoreWebView2 *webview,
+                                    [this]([[maybe_unused]] ICoreWebView2 *webview,
                                            ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
-                                        LPWSTR messageRaw;
+                                        LPWSTR messageRaw = nullptr;
                                         args->TryGetWebMessageAsString(&messageRaw);
                                         std::wstring message(messageRaw);
 
                                         if (!callbacks.empty())
                                         {
                                             nlohmann::json j = nlohmann::json::parse(ws2s(message), nullptr, false);
-                                            if (!j.is_discarded())
+                                            if (j.find("func") != j.end() && j.find("param") != j.end() &&
+                                                j.at("func").is_string() && j.at("param").is_array() &&
+                                                j.at("seq").is_number())
                                             {
-                                                if (j.find("func") != j.end() && j.find("param") != j.end() &&
-                                                    j.at("func").is_string() && j.at("param").is_array())
-                                                {
-                                                    auto rtn = callbacks.at(j["func"].get<std::string>())(
-                                                        *this, j["param"].get<std::vector<std::string>>());
-                                                    eval("function getResultFor" + j.at("func").get<std::string>() +
-                                                         "() { return `" + rtn + "`;}");
-                                                }
+                                                const auto &seq = j.at("seq").get<int>();
+                                                const auto &name = j.at("func").get<std::string>();
+                                                const auto &params = j.at("param").get<std::vector<std::string>>();
+                                                auto rtn = callbacks.at(name)(*this, params);
+
+                                                // clang-format off
+                                                auto code = fmt::format(R"js(
+                                                    window._rpc[{0}].resolve(`{1}`);
+                                                    delete window._rpc[{0}];
+                                                )js",seq, rtn);
+                                                // clang-format on
+
+                                                eval(code);
                                             }
                                         }
                                         CoTaskMemFree(messageRaw);
@@ -251,9 +259,9 @@ namespace wv
                                 &token);
 
                             webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                                L"console.log('Ready!');",
+                                L"window._rpc = {}; window._rpc_seq = 0;",
                                 Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
-                                    [this](HRESULT error, PCWSTR id) -> HRESULT {
+                                    [this]([[maybe_unused]] HRESULT error, [[maybe_unused]] PCWSTR id) -> HRESULT {
                                         ready = true;
                                         return S_OK;
                                     })
@@ -287,17 +295,53 @@ namespace wv
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
-        eval("function getResultFor" + name + "() {}");
         if (is_object)
         {
-            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getResultFor)" +
-                 name + "()); }");
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    var promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return JSON.parse(await promise);
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
         }
         else
         {
-            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); }");
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    var promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return await promise;
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
         }
     }
 
@@ -344,7 +388,7 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code, bool wait_for_ready)
+    inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready)
     {
         if (!init_done)
         {
@@ -354,7 +398,7 @@ namespace wv
         }
         else
         {
-            if (wait_for_ready && ready)
+            if (ready)
             {
                 webviewWindow->ExecuteScript(
                     charToWString(code.c_str()).c_str(),
@@ -387,7 +431,7 @@ namespace wv
 
         if (onResizeCallback)
         {
-            onResizeCallback(gtkEvent->width, gtkEvent->height);
+            onResizeCallback(rc.left + rc.right, rc.bottom + rc.top);
         }
     }
 
@@ -482,17 +526,53 @@ namespace wv
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
     {
         callbacks.insert({name, callback});
-        eval("function getResultFor" + name + "() {}");
         if (is_object)
         {
-            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return JSON.parse(await getResultFor)" +
-                 name + "()); }");
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    var promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return JSON.parse(await promise);
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
         }
         else
         {
-            eval("async function " + name + R"((...param) { await window.external.invoke(JSON.stringify({ "func": ")" +
-                 name + R"(", "param": Array.from(param).map(x => `${x}`) })); return getResultFor)" + name + "(); }");
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    var promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return await promise;
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
         }
     }
 
@@ -574,12 +654,21 @@ namespace wv
             if (!j.is_discarded())
             {
                 if (j.find("func") != j.end() && j.find("param") != j.end() && j.at("func").is_string() &&
-                    j.at("param").is_array())
+                    j.at("param").is_array() && j.at("seq").is_number())
                 {
-                    auto rtn = webView->callbacks.at(j["func"].get<std::string>())(
-                        *webView, j["param"].get<std::vector<std::string>>());
-                    webView->eval("function getResultFor" + j.at("func").get<std::string>() + "() { return `" + rtn +
-                                  "`;}");
+                    const auto &seq = j.at("seq").get<int>();
+                    const auto &name = j.at("func").get<std::string>();
+                    const auto &params = j.at("param").get<std::vector<std::string>>();
+                    auto rtn = webView->callbacks.at(name)(*webView, params);
+
+                    // clang-format off
+                    auto code = fmt::format(R"js(
+                        window._rpc[{0}].resolve(`{1}`);
+                        delete window._rpc[{0}];
+                    )js",seq, rtn);
+                    // clang-format on
+
+                    webView->eval(code);
                 }
             }
         }
@@ -596,6 +685,7 @@ namespace wv
     {
         if (event == WEBKIT_LOAD_FINISHED)
         {
+            static_cast<WebView *>(arg)->eval("window._rpc = {}; window._rpc_seq = 0;");
             static_cast<WebView *>(arg)->ready = true;
         }
     }
