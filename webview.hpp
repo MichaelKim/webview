@@ -244,7 +244,7 @@ namespace wv
 
                                                 // clang-format off
                                                 auto code = fmt::format(R"js(
-                                                    window._rpc[{0}].resolve(`{1}`);
+                                                    window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
                                                     delete window._rpc[{0}];
                                                 )js",seq, rtn);
                                                 // clang-format on
@@ -663,7 +663,7 @@ namespace wv
 
                     // clang-format off
                     auto code = fmt::format(R"js(
-                        window._rpc[{0}].resolve(`{1}`);
+                        window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
                         delete window._rpc[{0}];
                     )js",seq, rtn);
                     // clang-format on
