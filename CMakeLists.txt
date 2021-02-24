@@ -1,8 +1,10 @@
 cmake_minimum_required (VERSION 3.8)
 project (webview)
 
+add_subdirectory(lib/fmt)
+
 if(WIN32)
-	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_EDGE=1")
+	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_EDGE=1 -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS=1")
 	
 	# Thanks to flutter for this, Fuck you Microsoft for this abomination!
 	find_program(NUGET_EXE NAMES nuget)
@@ -17,7 +19,7 @@ if(WIN32)
     	ARGS install "Microsoft.Windows.ImplementationLibrary" -Version 1.0.210204.1 -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
 	
 	set(WEBVIEW_LIBS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
-	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
+	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
 else()
 	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_GTK=1")
 	find_package(PkgConfig REQUIRED)
@@ -32,4 +34,4 @@ target_include_directories(webview INTERFACE ${PROJECT_SOURCE_DIR} ${WEBVIEW_COM
 target_compile_definitions(webview INTERFACE ${WEBVIEW_COMPILE_DEFS})
 target_compile_features(webview INTERFACE cxx_std_17)
 target_compile_options(webview INTERFACE ${WEBVIEW_COMPILE_OPTS})
-target_link_libraries(webview INTERFACE ${WEBVIEW_LIBS})
+target_link_libraries(webview INTERFACE ${WEBVIEW_LIBS} fmt)
