@@ -103,7 +103,7 @@ namespace wv
 
         void css(const std::string &css);
         void navigate(const std::string &url);
-        void eval(const std::string &code, bool wait_for_ready = false);
+        void eval(const std::string &code, bool wait_for_ready = true);
 
         void setTitle(const std::string &t);
         void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
