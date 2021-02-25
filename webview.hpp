@@ -685,8 +685,8 @@ namespace wv
     {
         if (event == WEBKIT_LOAD_FINISHED)
         {
-            static_cast<WebView *>(arg)->eval("window._rpc = {}; window._rpc_seq = 0;");
             static_cast<WebView *>(arg)->ready = true;
+            static_cast<WebView *>(arg)->eval("window._rpc = {}; window._rpc_seq = 0;");
         }
     }
 
