@@ -33,7 +33,6 @@ namespace wv
 
     class WebView
     {
-        static constexpr auto debug = true;
         using callback_t = std::function<std::string(WebView &, const std::vector<std::string> &)>;
 
 #if defined(WEBVIEW_GTK)
@@ -44,7 +43,9 @@ namespace wv
             "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);";
 #endif
       private:
+        bool debug;
         bool resizable;
+        bool ready_early;
         int width, height;
 
         std::string url;
@@ -92,8 +93,10 @@ namespace wv
 #endif
 
       public:
-        WebView(int width, int height, bool resizable, std::string title, std::string url)
-            : width(width), height(height), resizable(resizable), title(std::move(title)), url(std::move(url))
+        WebView(int width, int height, bool resizable, std::string title, std::string url, bool readyEarly = true,
+                bool debug = false)
+            : width(width), height(height), resizable(resizable), title(std::move(title)), url(std::move(url)),
+              ready_early(readyEarly), debug(debug)
         {
         }
 
@@ -211,7 +214,7 @@ namespace wv
 
                             wil::com_ptr<ICoreWebView2Settings> settings;
                             webviewWindow->get_Settings(&settings);
-                            if constexpr (!debug)
+                            if (!debug)
                             {
                                 settings->put_AreDevToolsEnabled(0);
                             }
@@ -495,7 +498,7 @@ namespace wv
 
         g_signal_connect(window, "destroy", G_CALLBACK(destroyWindow), this); // NOLINT
 
-        if constexpr (debug)
+        if (debug)
         {
             WebKitSettings *settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(webview)); // NOLINT
             webkit_settings_set_enable_write_console_messages_to_stdout(settings, true);
@@ -683,10 +686,15 @@ namespace wv
     inline void WebView::webViewLoadChanged([[maybe_unused]] WebKitWebView *webview, WebKitLoadEvent event,
                                             gpointer arg)
     {
-        if (event == WEBKIT_LOAD_FINISHED)
+        auto *webView = static_cast<WebView *>(arg);
+        if (webView)
         {
-            static_cast<WebView *>(arg)->ready = true;
-            static_cast<WebView *>(arg)->eval("window._rpc = {}; window._rpc_seq = 0;");
+            if ((webView->ready_early && event == WEBKIT_LOAD_STARTED) ||
+                (!webView->ready_early && event == WEBKIT_LOAD_FINISHED))
+            {
+                webView->ready = true;
+                webView->eval("window._rpc = {}; window._rpc_seq = 0;");
+            }
         }
     }
 
