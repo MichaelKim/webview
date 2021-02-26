@@ -14,9 +14,9 @@ if(WIN32)
 	endif()
 
 	exec_program(${NUGET_EXE}
-    	ARGS install "Microsoft.Web.WebView2" -Version 1.0.705.50 -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+    	ARGS install "Microsoft.Web.WebView2" -Version 1.0.790-prerelease -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
 	exec_program(${NUGET_EXE}
-    	ARGS install "Microsoft.Windows.ImplementationLibrary" -Version 1.0.210204.1 -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+    	ARGS install "Microsoft.Windows.ImplementationLibrary" -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
 	
 	set(WEBVIEW_LIBS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
 	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
