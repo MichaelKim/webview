@@ -47,6 +47,7 @@ namespace wv
         bool resizable;
         bool ready_early;
         int width, height;
+        bool should_exit = false;
 
         std::string url;
         std::string title;
@@ -75,7 +76,6 @@ namespace wv
 #elif defined(WEBVIEW_GTK)
 
         bool ready = false;
-        bool should_exit = false;
         bool javascript_busy = false;
 
         GtkWidget *window;
@@ -187,7 +187,7 @@ namespace wv
 
         // Used with GetWindowLongPtr
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
         ShowWindow(hwnd, SW_SHOWDEFAULT);
         UpdateWindow(hwnd);
         SetFocus(hwnd);
@@ -217,7 +217,13 @@ namespace wv
                             if (!debug)
                             {
                                 settings->put_AreDevToolsEnabled(0);
+                                settings->put_IsBuiltInErrorPageEnabled(0);
+                                settings->put_AreDefaultScriptDialogsEnabled(0);
+                                settings->put_IsStatusBarEnabled(0);
+                                settings->put_AreHostObjectsAllowed(0);
+                                settings->put_AreDefaultContextMenusEnabled(0);
                             }
+                            settings->put_IsZoomControlEnabled(0);
 
                             resize();
 
@@ -370,13 +376,16 @@ namespace wv
 
     inline bool WebView::run()
     {
-        bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
-        if (loop)
+        if (PeekMessage(&msg, nullptr, 0, 0, 1) != -1)
         {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            if (msg.message)
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
         }
-        return loop;
+
+        return !should_exit;
     }
 
     inline void WebView::navigate(const std::string &url)
@@ -423,6 +432,7 @@ namespace wv
 
     inline void WebView::exit()
     {
+        should_exit = true;
         PostQuitMessage(WM_QUIT);
     }
 
