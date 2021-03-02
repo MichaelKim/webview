@@ -270,7 +270,7 @@ namespace wv
 
                                                 // clang-format off
                                                 auto code = fmt::format(R"js(
-                                                    window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
+                                                    window._rpc[{0}].resolve(`{1}`);
                                                     delete window._rpc[{0}];
                                                 )js",seq, rtn);
                                                 // clang-format on
@@ -695,7 +695,7 @@ namespace wv
 
                     // clang-format off
                     auto code = fmt::format(R"js(
-                        window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
+                        window._rpc[{0}].resolve(`{1}`);
                         delete window._rpc[{0}];
                     )js",seq, rtn);
                     // clang-format on
@@ -816,7 +816,7 @@ namespace wv
 
                                             // clang-format off
                                             auto code = fmt::format(R"js(
-                                                window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
+                                                window._rpc[{0}].resolve(`{1}`);
                                                 delete window._rpc[{0}];
                                             )js",seq, rtn);
                                             // clang-format on
