@@ -178,10 +178,10 @@ namespace wv
 
         // Set window size
         RECT r;
-        r.left = 0;
-        r.top = 0;
-        r.right = width;
-        r.bottom = height;
+        r.left = 30;
+        r.top = 70;
+        r.right = width + r.left;
+        r.bottom = height + r.top;
         SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top,
                      SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
