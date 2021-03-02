@@ -4,7 +4,7 @@ project (webview)
 add_subdirectory(lib/fmt)
 
 if(WIN32)
-	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_EDGE=1 -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS=1")
+	set(WEBVIEW_COMPILE_DEFS "-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS=1")
 	
 	# Thanks to flutter for this, Fuck you Microsoft for this abomination!
 	find_program(NUGET_EXE NAMES nuget)
@@ -20,8 +20,13 @@ if(WIN32)
 	
 	set(WEBVIEW_LIBS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
 	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
-else()
-	set(WEBVIEW_COMPILE_DEFS "-DWEBVIEW_GTK=1")
+elseif(APPLE)
+	find_library(COCOA_LIBRARY Cocoa)
+	find_library(WEBKIT_LIBRARY Webkit)
+
+	set(WEBVIEW_COMPILE_OPTS "-ObjC++")
+	set(WEBVIEW_LIBS ${COCOA_LIBRARY} ${WEBKIT_LIBRARY})
+elseif(UNIX)
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 	pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.0)
