@@ -838,7 +838,7 @@ namespace wv
         init_done = true;
 
         setTitle(title);
-        setBackgroundColor((bgR, bgG, bgB, bgA);
+        setBackgroundColor(background_color.r, background_color.g, background_color.b, background_color.a);
         navigate(url);
 
         return true;
