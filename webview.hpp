@@ -311,7 +311,7 @@ namespace wv
                 async function {0}(...param)
                 {{
                     const seq = ++window._rpc_seq;
-                    var promise = new Promise((resolve) => {{
+                    const promise = new Promise((resolve) => {{
                         window._rpc[seq] = {{
                             resolve: resolve
                         }};
@@ -335,7 +335,7 @@ namespace wv
                 async function {0}(...param)
                 {{
                     const seq = ++window._rpc_seq;
-                    var promise = new Promise((resolve) => {{
+                    const promise = new Promise((resolve) => {{
                         window._rpc[seq] = {{
                             resolve: resolve
                         }};
@@ -546,7 +546,7 @@ namespace wv
                 async function {0}(...param)
                 {{
                     const seq = ++window._rpc_seq;
-                    var promise = new Promise((resolve) => {{
+                    const promise = new Promise((resolve) => {{
                         window._rpc[seq] = {{
                             resolve: resolve
                         }};
@@ -570,7 +570,7 @@ namespace wv
                 async function {0}(...param)
                 {{
                     const seq = ++window._rpc_seq;
-                    var promise = new Promise((resolve) => {{
+                    const promise = new Promise((resolve) => {{
                         window._rpc[seq] = {{
                             resolve: resolve
                         }};
