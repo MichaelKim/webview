@@ -26,16 +26,17 @@
 #import <Webkit/Webkit.h>
 #include <objc/objc-runtime.h>
 
-// ObjC declarations may only appear in global scope
 @interface WindowDelegate : NSObject <NSWindowDelegate, WKScriptMessageHandler>
 @end
 
+#ifdef MACOS_IMPL
 @implementation WindowDelegate
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)scriptMessage
 {
 }
 @end
+#endif
 #endif
 
 namespace wv
