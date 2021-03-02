@@ -123,7 +123,7 @@ namespace wv
 
         void css(const std::string &css);
         void navigate(const std::string &url);
-        void eval(const std::string &code, bool wait_for_ready = true);
+        void eval(const std::string &code, bool wait_for_ready = true, bool wait_for_finish = true);
 
         void setTitle(const std::string &t);
         void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
@@ -417,7 +417,8 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready)
+    inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready,
+                              [[maybe_unused]] bool wait_for_finish)
     {
         if (!init_done)
         {
@@ -578,7 +579,7 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code);
+            eval(code, true, false);
         }
         else
         {
@@ -602,7 +603,7 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code);
+            eval(code, true, false);
         }
     }
 
@@ -649,18 +650,19 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code, bool wait_for_ready)
+    inline void WebView::eval(const std::string &code, bool wait_for_ready, bool wait_for_finish)
     {
         while (!init_done || (wait_for_ready && !ready))
         {
             g_main_context_iteration(nullptr, TRUE);
         }
+
         javascript_busy = true;
 
         // NOLINTNEXTLINE
         webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), code.c_str(), nullptr, webViewEvalFinished, this);
 
-        while (javascript_busy)
+        while (javascript_busy && wait_for_finish)
         {
             g_main_context_iteration(nullptr, TRUE); // NOLINT
         }
@@ -952,7 +954,8 @@ namespace wv
         }
     }
 
-    inline void WebView::eval(const std::string &code, bool wait_for_ready)
+    inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready,
+                              [[maybe_unused]] bool wait_for_finish)
     {
         [webview evaluateJavaScript:[NSString stringWithUTF8String:code.c_str()] completionHandler:nil];
     }
