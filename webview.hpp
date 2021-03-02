@@ -4,6 +4,7 @@
 #include "lib/json/single_include/nlohmann/json.hpp"
 #include <fmt/format.h>
 #include <functional>
+#include <regex>
 #include <string>
 #include <string_view>
 
@@ -420,6 +421,7 @@ namespace wv
     inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready,
                               [[maybe_unused]] bool wait_for_finish)
     {
+
         if (!init_done)
         {
             run_mutex.lock();
@@ -431,7 +433,7 @@ namespace wv
             if (ready)
             {
                 webviewWindow->ExecuteScript(
-                    charToWString(code.c_str()).c_str(),
+                    charToWString(std::regex_replace(code, std::regex(R"rgx(\\)rgx"), R"(\\)").c_str()).c_str(),
                     Callback<ICoreWebView2ExecuteScriptCompletedHandler>([](HRESULT errorCode,
                                                                             LPCWSTR resultObjectAsJson) -> HRESULT {
                         return S_OK;
@@ -440,7 +442,7 @@ namespace wv
             else
             {
                 webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                    charToWString(code.c_str()).c_str(),
+                    charToWString(std::regex_replace(code, std::regex(R"rgx(\\)rgx"), R"(\\)").c_str()).c_str(),
                     Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
                         [this](HRESULT error, PCWSTR id) -> HRESULT { return S_OK; })
                         .Get());
@@ -660,7 +662,9 @@ namespace wv
         javascript_busy = true;
 
         // NOLINTNEXTLINE
-        webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), code.c_str(), nullptr, webViewEvalFinished, this);
+        webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview),
+                                       std::regex_replace(code, std::regex(R"rgx(\\")rgx"), R"(\\\")").c_str(), nullptr,
+                                       webViewEvalFinished, this);
 
         while (javascript_busy && wait_for_finish)
         {
