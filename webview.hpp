@@ -751,7 +751,7 @@ namespace wv
         return FALSE;
     }
 #elif defined(__APPLE__)
-    inline int WebView::init()
+    inline bool WebView::init()
     {
         pool = [NSAutoreleasePool new];
         uint style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
@@ -841,7 +841,7 @@ namespace wv
         setBackgroundColor((bgR, bgG, bgB, bgA);
         navigate(url);
 
-        return 0;
+        return true;
     }
 
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
