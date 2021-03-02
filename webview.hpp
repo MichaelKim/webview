@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-#if defined(WEBVIEW_EDGE)
+#if defined(_WIN32)
 #include <codecvt>
 #include <locale>
 #include <mutex>
@@ -17,17 +17,30 @@
 
 #include <WebView2.h>
 
-#elif defined(WEBVIEW_GTK)
+#elif defined(__linux__)
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
-#else
-#error "Define one of WEBVIEW_EDGE, or WEBVIEW_GTK"
+#elif defined(__APPLE__)
+#import <Cocoa/Cocoa.h>
+#import <Webkit/Webkit.h>
+#include <objc/objc-runtime.h>
+
+// ObjC declarations may only appear in global scope
+@interface WindowDelegate : NSObject <NSWindowDelegate, WKScriptMessageHandler>
+@end
+
+@implementation WindowDelegate
+- (void)userContentController:(WKUserContentController *)userContentController
+      didReceiveScriptMessage:(WKScriptMessage *)scriptMessage
+{
+}
+@end
 #endif
 
 namespace wv
 {
-#if defined(WEBVIEW_EDGE)
+#if defined(_WIN32)
     using namespace Microsoft::WRL;
 #endif
 
@@ -35,10 +48,10 @@ namespace wv
     {
         using callback_t = std::function<std::string(WebView &, const std::vector<std::string> &)>;
 
-#if defined(WEBVIEW_GTK)
+#if defined(__linux__) || defined(__APPLE__)
         static constexpr std::string_view INVOKE_CODE = "window.external={invoke:arg=>window.webkit."
                                                         "messageHandlers.external.postMessage(arg)};";
-#elif defined(WEBVIEW_EDGE)
+#elif defined(_WIN32)
         static constexpr std::string_view INVOKE_CODE =
             "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);";
 #endif
@@ -61,7 +74,7 @@ namespace wv
             std::uint8_t r = 255, g = 255, b = 255, a = 255;
         } background_color;
 
-#if defined(WEBVIEW_EDGE)
+#if defined(_WIN32)
         std::mutex run_mutex;
         std::vector<std::function<void()>> run_on_init_done;
         HINSTANCE hInt = nullptr;
@@ -73,8 +86,7 @@ namespace wv
 
         void resize();
         static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
-#elif defined(WEBVIEW_GTK)
-
+#elif defined(__linux__)
         bool ready = false;
         bool javascript_busy = false;
 
@@ -90,6 +102,10 @@ namespace wv
                                            WebKitHitTestResult *hit_test_result, gboolean triggered_with_keyboard,
                                            gpointer user_data);
         static gboolean webViewResize(WebKitWebView *webview, GdkEvent *event, gpointer user_data);
+#elif defined(__APPLE__)
+        NSAutoreleasePool *pool;
+        WKWebView *webview;
+        NSWindow *window;
 #endif
 
       public:
@@ -119,7 +135,7 @@ namespace wv
         onResizeCallback = callback;
     }
 
-#if defined(WEBVIEW_EDGE)
+#if defined(_WIN32)
     // God please forgive me my sins, writing code on windows is worse than hell
     static std::wstring charToWString(const char *text)
     {
@@ -471,7 +487,7 @@ namespace wv
         }
         return 0;
     }
-#elif defined(WEBVIEW_GTK)
+#elif defined(__linux__)
     inline bool WebView::init()
     {
         if (gtk_init_check(nullptr, nullptr) == FALSE)
@@ -734,6 +750,217 @@ namespace wv
 
         return FALSE;
     }
-#endif // WEBVIEW_GTK
+#elif defined(__APPLE__)
+    inline int WebView::init()
+    {
+        pool = [NSAutoreleasePool new];
+        uint style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
+
+        if (resizable)
+        {
+            style |= NSWindowStyleMaskResizable;
+        }
+
+        window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, width, height)
+                                             styleMask:style
+                                               backing:NSBackingStoreBuffered
+                                                 defer:NO];
+
+        [window setContentMinSize:NSMakeSize(width, height)];
+
+        [window center];
+
+        WKWebViewConfiguration *config = [WKWebViewConfiguration new];
+        WKPreferences *prefs = [config preferences];
+        [prefs setJavaScriptCanOpenWindowsAutomatically:NO];
+        [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+
+        WKUserContentController *controller = [config userContentController];
+        WKUserScript *userScript = [WKUserScript alloc];
+        [userScript initWithSource:[NSString stringWithUTF8String:INVOKE_CODE.data()]
+                     injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                  forMainFrameOnly:NO];
+        [controller addUserScript:userScript];
+
+        webview = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
+
+        class_replaceMethod([WindowDelegate class], @selector(windowWillClose:),
+                            imp_implementationWithBlock([=](id self, SEL cmd, id notification) { this->exit(); }),
+                            "v@:@");
+
+        class_replaceMethod([WindowDelegate class], @selector(userContentController:didReceiveScriptMessage:),
+                            imp_implementationWithBlock([=](id self, SEL cmd, WKScriptMessage *scriptMessage) {
+                                if (!callbacks.empty())
+                                {
+                                    id body = [scriptMessage body];
+                                    if (![body isKindOfClass:[NSString class]])
+                                    {
+                                        return;
+                                    }
+
+                                    std::string str = [body UTF8String];
+                                    nlohmann::json j = nlohmann::json::parse(str, nullptr, false);
+                                    if (!j.is_discarded())
+                                    {
+                                        if (j.find("func") != j.end() && j.find("param") != j.end() &&
+                                            j.at("func").is_string() && j.at("param").is_array() &&
+                                            j.at("seq").is_number())
+                                        {
+                                            const auto &seq = j.at("seq").get<int>();
+                                            const auto &name = j.at("func").get<std::string>();
+                                            const auto &params = j.at("param").get<std::vector<std::string>>();
+                                            auto rtn = callbacks.at(name)(*this, params);
+
+                                            // clang-format off
+                                            auto code = fmt::format(R"js(
+                                                window._rpc[{0}].resolve(`{1}`.replace(/\\/g, "\\\\"));
+                                                delete window._rpc[{0}];
+                                            )js",seq, rtn);
+                                            // clang-format on
+
+                                            eval(code);
+                                        }
+                                    }
+                                }
+                            }),
+                            "v@:@");
+
+        WindowDelegate *delegate = [WindowDelegate alloc];
+        [controller addScriptMessageHandler:delegate name:@"soundux-webview"];
+        [window setDelegate:delegate];
+
+        [NSApplication sharedApplication];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        [NSApp activateIgnoringOtherApps:YES];
+        [window setContentView:webview];
+        [window makeKeyAndOrderFront:nil];
+
+        init_done = true;
+
+        setTitle(title);
+        setBackgroundColor((bgR, bgG, bgB, bgA);
+        navigate(url);
+
+        return 0;
+    }
+
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
+    {
+        callbacks.insert({name, callback});
+        if (is_object)
+        {
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    const promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return JSON.parse(await promise);
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
+        }
+        else
+        {
+            // clang-format off
+            auto code = fmt::format(R"js(
+                async function {0}(...param)
+                {{
+                    const seq = ++window._rpc_seq;
+                    const promise = new Promise((resolve) => {{
+                        window._rpc[seq] = {{
+                            resolve: resolve
+                        }};
+                    }});
+                    window.external.invoke(JSON.stringify({{
+                        "seq": seq,
+                        "func": "{0}",
+                        "param": Array.from(param).map(x => `${{x}}`)
+                    }}));
+                    return await promise;
+                }}
+            )js", name);
+            // clang-format on
+
+            eval(code);
+        }
+    }
+
+    inline void WebView::setTitle(const std::string &title)
+    {
+        if (!init_done)
+        {
+            this->title = title;
+        }
+        else
+        {
+            [window setTitle:[NSString stringWithUTF8String:title.c_str()]];
+        }
+    }
+
+    inline void WebView::setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    {
+        if (!init_done)
+        {
+            background_color = {r, g, b, a};
+        }
+        else
+        {
+            [window setBackgroundColor:[NSColor colorWithCalibratedRed:r / 255.0
+                                                                 green:g / 255.0
+                                                                  blue:b / 255.0
+                                                                 alpha:a / 255.0]];
+        }
+    }
+
+    inline bool WebView::run()
+    {
+        NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                                            untilDate:[NSDate distantFuture]
+                                               inMode:NSDefaultRunLoopMode
+                                              dequeue:true];
+        if (event)
+        {
+            [NSApp sendEvent:event];
+        }
+
+        return should_exit;
+    }
+
+    inline void WebView::navigate(const std::string &url)
+    {
+        if (!init_done)
+        {
+            this->url = url;
+        }
+        else
+        {
+            [webview loadRequest:[NSURLRequest
+                                     requestWithURL:[NSURL URLWithString:[NSString stringWithUTF8String:url.c_str()]]]];
+        }
+    }
+
+    inline void WebView::eval(const std::string &code, bool wait_for_ready)
+    {
+        [webview evaluateJavaScript:[NSString stringWithUTF8String:code.c_str()] completionHandler:nil];
+    }
+
+    inline void WebView::exit()
+    {
+        should_exit = true;
+        [NSApp terminate:nil];
+    }
+#endif
 
 } // namespace wv
