@@ -69,6 +69,7 @@ namespace wv
 
         bool init_done = false;
         std::map<std::string, callback_t> callbacks;
+        std::vector<std::function<void()>> run_on_load;
         std::function<void(int, int)> onResizeCallback;
 
         struct
@@ -111,7 +112,7 @@ namespace wv
 #endif
 
       public:
-        WebView(int width, int height, bool resizable, std::string title, std::string url, bool readyEarly = true,
+        WebView(int width, int height, bool resizable, std::string title, std::string url, bool readyEarly = false,
                 bool debug = false)
             : width(width), height(height), resizable(resizable), title(std::move(title)), url(std::move(url)),
               ready_early(readyEarly), debug(debug)
@@ -129,7 +130,8 @@ namespace wv
         void setTitle(const std::string &t);
         void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
         void setResizeCallback(const std::function<void(int, int)> &callback);
-        void addCallback(const std::string &name, const callback_t &callback, bool is_object = false);
+        void addCallback(const std::string &name, const callback_t &callback, bool is_object = false,
+                         bool execute_on_load = true);
     };
 
     inline void WebView::setResizeCallback(const std::function<void(int, int)> &callback)
@@ -285,6 +287,20 @@ namespace wv
                                     .Get(),
                                 &token);
 
+                            EventRegistrationToken loadEvent;
+                            webviewWindow->add_ContentLoading(
+                                Callback<ICoreWebView2ContentLoadingEventHandler>().Get(
+                                    [this]([[maybe_unused]] ICoreWebView2 *webview,
+                                           ICoreWebView2ContentLoadingEventArgs *args) -> HRESULT {
+                                        eval(INVOKE_CODE.data(), false, false);
+                                        eval("window._rpc = {}; window._rpc_seq = 0;");
+                                        for (const auto &fun : run_on_load)
+                                        {
+                                            fun();
+                                        }
+                                    }),
+                                &loadEvent);
+
                             webviewWindow->AddScriptToExecuteOnDocumentCreated(
                                 L"window._rpc = {}; window._rpc_seq = 0;",
                                 Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
@@ -319,7 +335,8 @@ namespace wv
         return !FAILED(hr);
     }
 
-    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object,
+                                     bool execute_on_load)
     {
         callbacks.insert({name, callback});
         if (is_object)
@@ -344,7 +361,14 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code);
+            if (execute_on_load)
+            {
+                run_on_load.push_back([=] { eval(code, true, false); });
+            }
+            else
+            {
+                eval(code, true, false);
+            }
         }
         else
         {
@@ -368,7 +392,14 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code);
+            if (execute_on_load)
+            {
+                run_on_load.push_back([=] { eval(code, true, false); });
+            }
+            else
+            {
+                eval(code, true, false);
+            }
         }
     }
 
@@ -408,11 +439,8 @@ namespace wv
 
     inline void WebView::navigate(const std::string &url)
     {
-        if (!init_done)
-        {
-            this->url = url;
-        }
-        else
+        this->url = url;
+        if (init_done)
         {
             webviewWindow->Navigate(charToWString(url.c_str()).c_str());
         }
@@ -421,7 +449,6 @@ namespace wv
     inline void WebView::eval(const std::string &code, [[maybe_unused]] bool wait_for_ready,
                               [[maybe_unused]] bool wait_for_finish)
     {
-
         if (!init_done)
         {
             run_mutex.lock();
@@ -541,9 +568,6 @@ namespace wv
 
         g_signal_connect(GTK_WINDOW(window), "configure-event", G_CALLBACK(webViewResize), this); // NOLINT
 
-        // NOLINTNEXTLINE
-        webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), INVOKE_CODE.data(), nullptr, nullptr, nullptr);
-
         init_done = true;
 
         setTitle(title);
@@ -556,7 +580,8 @@ namespace wv
         return true;
     }
 
-    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object,
+                                     bool execute_on_load)
     {
         callbacks.insert({name, callback});
         if (is_object)
@@ -581,7 +606,14 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code, true, false);
+            if (execute_on_load)
+            {
+                run_on_load.push_back([=] { eval(code, true, false); });
+            }
+            else
+            {
+                eval(code, true, false);
+            }
         }
         else
         {
@@ -605,7 +637,14 @@ namespace wv
             )js", name);
             // clang-format on
 
-            eval(code, true, false);
+            if (execute_on_load)
+            {
+                run_on_load.push_back([=] { eval(code, true, false); });
+            }
+            else
+            {
+                eval(code, true, false);
+            }
         }
     }
 
@@ -642,11 +681,8 @@ namespace wv
 
     inline void WebView::navigate(const std::string &url)
     {
-        if (!init_done)
-        {
-            this->url = url;
-        }
-        else
+        this->url = url;
+        if (init_done)
         {
             webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webview), url.c_str()); // NOLINT
         }
@@ -722,11 +758,16 @@ namespace wv
         auto *webView = static_cast<WebView *>(arg);
         if (webView)
         {
-            if ((webView->ready_early && event == WEBKIT_LOAD_STARTED) ||
+            if ((webView->ready_early && event == WEBKIT_LOAD_COMMITTED) ||
                 (!webView->ready_early && event == WEBKIT_LOAD_FINISHED))
             {
                 webView->ready = true;
+                webView->eval(INVOKE_CODE.data(), false, false);
                 webView->eval("window._rpc = {}; window._rpc_seq = 0;");
+                for (const auto &fun : webView->run_on_load)
+                {
+                    fun();
+                }
             }
         }
     }
@@ -851,7 +892,8 @@ namespace wv
         return true;
     }
 
-    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object)
+    inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object,
+                                     [[maybe_unused]] bool execute_on_load)
     {
         callbacks.insert({name, callback});
         if (is_object)
@@ -947,11 +989,8 @@ namespace wv
 
     inline void WebView::navigate(const std::string &url)
     {
-        if (!init_done)
-        {
-            this->url = url;
-        }
-        else
+        this->url = url;
+        if (init_done)
         {
             [webview loadRequest:[NSURLRequest
                                      requestWithURL:[NSURL URLWithString:[NSString stringWithUTF8String:url.c_str()]]]];
