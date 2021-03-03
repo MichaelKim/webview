@@ -298,6 +298,8 @@ namespace wv
                                         {
                                             fun();
                                         }
+
+                                        return S_OK;
                                     })
                                     .Get(),
                                 &loadEvent);
