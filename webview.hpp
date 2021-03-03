@@ -289,7 +289,7 @@ namespace wv
 
                             EventRegistrationToken loadEvent;
                             webviewWindow->add_ContentLoading(
-                                Callback<ICoreWebView2ContentLoadingEventHandler>().Get(
+                                Callback<ICoreWebView2ContentLoadingEventHandler>(
                                     [this]([[maybe_unused]] ICoreWebView2 *webview,
                                            ICoreWebView2ContentLoadingEventArgs *args) -> HRESULT {
                                         eval(INVOKE_CODE.data(), false, false);
@@ -298,7 +298,8 @@ namespace wv
                                         {
                                             fun();
                                         }
-                                    }),
+                                    })
+                                    .Get(),
                                 &loadEvent);
 
                             webviewWindow->AddScriptToExecuteOnDocumentCreated(
