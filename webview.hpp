@@ -69,7 +69,6 @@ namespace wv
 
         bool init_done = false;
         std::map<std::string, callback_t> callbacks;
-        std::vector<std::function<void()>> run_on_load;
         std::function<void(int, int)> onResizeCallback;
 
         struct
@@ -92,6 +91,7 @@ namespace wv
 #elif defined(__linux__)
         bool ready = false;
         bool javascript_busy = false;
+        std::vector<std::function<void()>> run_on_load;
 
         GtkWidget *window;
         GtkWidget *webview;
@@ -287,23 +287,6 @@ namespace wv
                                     .Get(),
                                 &token);
 
-                            EventRegistrationToken loadEvent;
-                            webviewWindow->add_ContentLoading(
-                                Callback<ICoreWebView2ContentLoadingEventHandler>(
-                                    [this]([[maybe_unused]] ICoreWebView2 *webview,
-                                           ICoreWebView2ContentLoadingEventArgs *args) -> HRESULT {
-                                        eval(INVOKE_CODE.data(), false, false);
-                                        eval("window._rpc = {}; window._rpc_seq = 0;");
-                                        for (const auto &fun : run_on_load)
-                                        {
-                                            fun();
-                                        }
-
-                                        return S_OK;
-                                    })
-                                    .Get(),
-                                &loadEvent);
-
                             webviewWindow->AddScriptToExecuteOnDocumentCreated(
                                 L"window._rpc = {}; window._rpc_seq = 0;",
                                 Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
@@ -339,7 +322,7 @@ namespace wv
     }
 
     inline void WebView::addCallback(const std::string &name, const callback_t &callback, bool is_object,
-                                     bool execute_on_load)
+                                     [[maybe_unused]] bool execute_on_load)
     {
         callbacks.insert({name, callback});
         if (is_object)
@@ -364,14 +347,7 @@ namespace wv
             )js", name);
             // clang-format on
 
-            if (execute_on_load)
-            {
-                run_on_load.push_back([=] { eval(code, true, false); });
-            }
-            else
-            {
-                eval(code, true, false);
-            }
+            eval(code, true, false);
         }
         else
         {
@@ -395,14 +371,7 @@ namespace wv
             )js", name);
             // clang-format on
 
-            if (execute_on_load)
-            {
-                run_on_load.push_back([=] { eval(code, true, false); });
-            }
-            else
-            {
-                eval(code, true, false);
-            }
+            eval(code, true, false);
         }
     }
 
