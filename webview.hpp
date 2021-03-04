@@ -1,9 +1,9 @@
 #pragma once
 
 // Headers
-#include "lib/json/single_include/nlohmann/json.hpp"
 #include <fmt/format.h>
 #include <functional>
+#include <json.hpp>
 #include <regex>
 #include <string>
 #include <string_view>
