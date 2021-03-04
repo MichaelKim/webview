@@ -58,14 +58,16 @@ namespace wv
             "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);";
 #endif
       private:
-        bool debug;
-        bool resizable;
-        bool ready_early;
         int width, height;
-        bool should_exit = false;
+        bool resizable;
 
-        std::string url;
         std::string title;
+        std::string url;
+
+        bool ready_early;
+        bool debug;
+
+        bool should_exit = false;
 
         bool init_done = false;
         std::map<std::string, callback_t> callbacks;
