@@ -133,9 +133,8 @@ namespace Soundux
                     std::apply(unpackFunc, packedArgs);
                     return "null";
                 }
-                else
+                else if constexpr (traits::is_optional<typename func_traits::return_t>::value)
                 {
-                    static_assert(traits::is_optional<typename func_traits::return_t>::value);
                     typename func_traits::return_t rtn;
 
                     auto unpackFunc = [&rtn, function](auto &&...args) { rtn = std::move(function(args...)); };
@@ -146,6 +145,15 @@ namespace Soundux
                         return nlohmann::json(*rtn).dump();
                     }
                     return "null";
+                }
+                else
+                {
+                    typename func_traits::return_t rtn;
+
+                    auto unpackFunc = [&rtn, function](auto &&...args) { rtn = std::move(function(args...)); };
+                    std::apply(unpackFunc, packedArgs);
+
+                    return nlohmann::json(rtn).dump();
                 }
             };
 
