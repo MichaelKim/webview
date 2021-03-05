@@ -1,3 +1,4 @@
+#if defined(__linux__)
 #include "../webview.hpp"
 #include <JavaScriptCore/JavaScript.h>
 #include <cassert>
@@ -30,3 +31,4 @@ namespace Soundux
         void setTitle(const std::string &title) override;
     };
 } // namespace Soundux
+#endif

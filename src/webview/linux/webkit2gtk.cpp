@@ -1,3 +1,4 @@
+#if defined(__linux__)
 #include "webkit2gtk.hpp"
 
 namespace Soundux
@@ -124,3 +125,4 @@ namespace Soundux
         webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), code.c_str(), nullptr, nullptr, nullptr); // NOLINT
     }
 } // namespace Soundux
+#endif
