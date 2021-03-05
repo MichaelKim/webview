@@ -44,8 +44,10 @@ namespace Soundux
 
         return 0;
     }
-    bool WebView2::setup()
+    bool WebView2::setup(int width, int height)
     {
+        this->width = width;
+        this->height = height;
         instance = GetModuleHandle(nullptr);
         if (instance == nullptr)
         {
@@ -83,7 +85,7 @@ namespace Soundux
         GetWindowRect(hwnd, &rect);
         auto x = (GetSystemMetrics(SM_CXSCREEN) - rect.right) / 2;
         auto y = (GetSystemMetrics(SM_CYSCREEN) - rect.bottom) / 2;
-        SetWindowPos(hwnd, nullptr, x, y, 0, 0, SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+        SetWindowPos(hwnd, nullptr, x, y, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER);
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE); // NOLINT

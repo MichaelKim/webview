@@ -8,8 +8,6 @@
 #include <string>
 #include <type_traits>
 
-#include <iostream>
-
 namespace Soundux
 {
     namespace traits
@@ -114,7 +112,7 @@ namespace Soundux
         virtual void enableDevTools(bool);
 
         virtual bool run() = 0;
-        virtual bool setup() = 0;
+        virtual bool setup(int, int) = 0;
 
         virtual void setSize(int, int);
         virtual void navigate(const std::string &);

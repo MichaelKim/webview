@@ -36,6 +36,7 @@ elseif(UNIX)
     target_include_directories(webview SYSTEM PUBLIC ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
 endif()
 
+target_include_directories(webview SYSTEM PUBLIC "src/")
 target_include_directories(webview SYSTEM PUBLIC "lib/json/single_include/nlohmann")
 
 target_compile_features(webview PUBLIC cxx_std_17)

@@ -28,7 +28,7 @@ namespace Soundux
 
       public:
         bool run() override;
-        bool setup() override;
+        bool setup(int width, int height) override;
 
         void setSize(int width, int height) override;
 
