@@ -24,7 +24,7 @@ namespace Soundux
             {
                 arg_count = sizeof...(Args)
             };
-            using arg_t = std::tuple<Args...>;
+            using arg_t = std::tuple<std::decay_t<Args>...>;
             using return_t = ReturnType;
         };
         template <typename T> struct is_optional
