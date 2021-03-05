@@ -13,7 +13,9 @@ namespace Soundux
 
     class WebView2 : public WebView
     {
+        std::vector<std::function<void()>> runOnInitDone;
         HINSTANCE instance = nullptr;
+        bool initDone = false;
         HWND hwnd = nullptr;
         MSG msg = {};
 
@@ -21,6 +23,8 @@ namespace Soundux
         wil::com_ptr<ICoreWebView2> webViewWindow;
 
         static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+        void onResize(int width, int height) override;
 
       public:
         bool run() override;
