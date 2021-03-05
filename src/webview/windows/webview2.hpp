@@ -1,12 +1,16 @@
-#if defined(__WIN32)
+#if defined(_WIN32)
 #include "../webview.hpp"
 #include <mutex>
 #include <wil/com.h>
 #include <windows.h>
 #include <wrl.h>
 
+#include <WebView2.h>
+
 namespace Soundux
 {
+    using namespace Microsoft::WRL;
+
     class WebView2 : public WebView
     {
         HINSTANCE hInt = nullptr;

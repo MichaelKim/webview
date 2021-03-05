@@ -11,6 +11,20 @@ add_library(webview STATIC ${src})
 
 if (WIN32)
     target_compile_options(webview PRIVATE /W4)
+    
+    find_program(NUGET_EXE NAMES nuget)
+	if(NOT NUGET_EXE)
+		message("NUGET.EXE not found.")
+		message(FATAL_ERROR "Please install this executable, and run CMake again.")
+	endif()
+
+	exec_program(${NUGET_EXE}
+    	ARGS install "Microsoft.Web.WebView2" -Version 1.0.790-prerelease -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+	exec_program(${NUGET_EXE}
+    	ARGS install "Microsoft.Windows.ImplementationLibrary" -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
+
+    target_link_libraries(webview INTERFACE ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
+    target_include_directories(webview SYSTEM PUBLIC ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
 elseif(UNIX)
     target_compile_options(webview INTERFACE -Wall -Wextra -Werror -pedantic -Wno-unused-lambda-capture)
     

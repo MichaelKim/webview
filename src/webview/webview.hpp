@@ -3,9 +3,9 @@
 #include <functional>
 #include <json.hpp>
 #include <map>
+#include <optional>
 #include <regex>
 #include <string>
-#include <string_view>
 #include <type_traits>
 
 #include <iostream>
@@ -40,17 +40,23 @@ namespace Soundux
     namespace helpers
     {
         template <std::size_t I, typename Tuple, typename Function, std::enable_if_t<(I >= 0)> * = nullptr>
-        void setTuple(Tuple &tuple, Function func)
+        void setTupleImpl(Tuple &tuple, Function func)
         {
-            func(I, std::get<I>(tuple));
-            if constexpr (I > 0)
+            if constexpr (I >= 0)
             {
-                setTuple<I - 1>(tuple, func);
+                func(I, std::get<I>(tuple));
+                if constexpr (I > 0)
+                {
+                    setTupleImpl<I - 1>(tuple, func);
+                }
             }
         }
-        template <int I, typename Tuple, typename Function, std::enable_if_t<(I < 0)> * = nullptr>
-        void setTuple([[maybe_unused]] Tuple &t, [[maybe_unused]] Function f)
+        template <int I, typename Tuple, typename Function> void setTuple(Tuple &tuple, Function func)
         {
+            if constexpr (I >= 0)
+            {
+                setTupleImpl<I>(tuple, func);
+            }
         }
     } // namespace helpers
     class WebView
