@@ -125,7 +125,7 @@ namespace Soundux
                 typename func_traits::arg_t packedArgs;
 
                 helpers::setTuple<func_traits::arg_count - 1>(packedArgs,
-                                                              [&j](auto index, auto &val) { val = j.at(index); });
+                                                              [&j](auto index, auto &val) { j.at(index).get_to(val); });
 
                 if constexpr (std::is_void_v<typename func_traits::return_t>)
                 {
