@@ -1,6 +1,6 @@
 #include "../webview.hpp"
-
 #include <JavaScriptCore/JavaScript.h>
+#include <cassert>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
 
