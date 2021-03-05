@@ -1,43 +1,33 @@
-cmake_minimum_required (VERSION 3.8)
-project (webview)
+cmake_minimum_required(VERSION 3.1)
+project(webview VERSION 0.1 DESCRIPTION "The WebView component of Soundux")
 
-add_subdirectory(lib/fmt)
+file(GLOB src
+    "src/*.cpp"
+    "src/*/*.cpp"
+    "src/*/*/*.cpp"
+)
 
-if(WIN32)
-	set(WEBVIEW_COMPILE_DEFS "-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS=1")
-	
-	# Thanks to flutter for this, Fuck you Microsoft for this abomination!
-	find_program(NUGET_EXE NAMES nuget)
-	if(NOT NUGET_EXE)
-		message("NUGET.EXE not found.")
-		message(FATAL_ERROR "Please install this executable, and run CMake again.")
-	endif()
+add_library(webview ${src})
 
-	exec_program(${NUGET_EXE}
-    	ARGS install "Microsoft.Web.WebView2" -Version 1.0.790-prerelease -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
-	exec_program(${NUGET_EXE}
-    	ARGS install "Microsoft.Windows.ImplementationLibrary" -ExcludeVersion -OutputDirectory ${CMAKE_BINARY_DIR}/packages)
-	
-	set(WEBVIEW_LIBS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/Microsoft.Web.WebView2.targets ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets)
-	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2/build/native/include ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/include)
-elseif(APPLE)
-	find_library(COCOA_LIBRARY Cocoa)
-	find_library(WEBKIT_LIBRARY Webkit)
-
-	set(WEBVIEW_COMPILE_OPTS "-ObjC++")
-	set(WEBVIEW_LIBS ${COCOA_LIBRARY} ${WEBKIT_LIBRARY})
+if (WIN32)
+    target_compile_options(webview PRIVATE /W4)
 elseif(UNIX)
-	find_package(PkgConfig REQUIRED)
+    target_compile_options(webview PRIVATE -Wall -Wextra -Werror -pedantic -Wno-unused-lambda-capture)
+    
+    find_package(PkgConfig REQUIRED)
 	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 	pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.0)
-	set(WEBVIEW_COMPILE_INCS ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
-	set(WEBVIEW_LIBS ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
+
+    target_link_libraries(webview PRIVATE ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
+    target_include_directories(webview PRIVATE ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
 endif()
 
-add_library(webview INTERFACE)
-target_include_directories(webview SYSTEM INTERFACE ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
-target_include_directories(webview SYSTEM INTERFACE "lib/json/single_include/nlohmann")
-target_compile_definitions(webview INTERFACE ${WEBVIEW_COMPILE_DEFS})
-target_compile_features(webview INTERFACE cxx_std_17)
-target_compile_options(webview INTERFACE ${WEBVIEW_COMPILE_OPTS})
-target_link_libraries(webview INTERFACE ${WEBVIEW_LIBS} fmt)
+target_include_directories(webview SYSTEM PRIVATE "lib/json/single_include/nlohmann")
+
+target_compile_features(webview PRIVATE cxx_std_17)
+set_target_properties(webview PROPERTIES CMAKE_CXX_STANDARD 17)
+set_target_properties(webview PROPERTIES CMAKE_CXX_EXTENSIONS Off)
+set_target_properties(webview PROPERTIES CMAKE_CXX_STANDARD_REQUIRED On)
+
+set_target_properties(webview PROPERTIES VERSION ${PROJECT_VERSION})
+set_target_properties(webview PROPERTIES PROJECT_NAME ${PROJECT_NAME})
