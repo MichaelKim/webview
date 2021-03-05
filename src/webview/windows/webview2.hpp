@@ -13,13 +13,14 @@ namespace Soundux
 
     class WebView2 : public WebView
     {
-        HINSTANCE hInt = nullptr;
+        HINSTANCE instance = nullptr;
         HWND hwnd = nullptr;
         MSG msg = {};
-        wil::com_ptr<ICoreWebView2Controller> webview_controller;
-        wil::com_ptr<ICoreWebView2> webviewWindow;
 
-        static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
+        wil::com_ptr<ICoreWebView2Controller> webViewController;
+        wil::com_ptr<ICoreWebView2> webViewWindow;
+
+        static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
       public:
         bool run() override;
