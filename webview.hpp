@@ -52,7 +52,7 @@
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
 #else  // WEBVIEW_GTK
-#error "Define one of WEBVIEW_WIN, WEBVIEW_MAC, or WEBVIEW_GTK"
+#error "Define one of WEBVIEW_WIN, WEBVIEW_EDGE, WEBVIEW_MAC, or WEBVIEW_GTK"
 #endif
 
 constexpr auto DEFAULT_URL = Str(R"(data:text/html,
