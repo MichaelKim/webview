@@ -452,8 +452,14 @@ int WebView::init() {
                  r.bottom - r.top,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
+    if (!resizable) {
+       auto style = GetWindowLong(hwnd, GWL_STYLE);
+       style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+       SetWindowLong(hwnd, GWL_STYLE, style);    
+    } else {
     // Used with GetWindowLongPtr
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+      SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+    };
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
