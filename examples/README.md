@@ -5,6 +5,10 @@ To build these examples, follow the install steps for your OS in the [top level 
 ```sh
 mkdir build
 cd build
+
 cmake ..
-make
+# or from the root directory
+cmake ../examples/basic
+
+cmake --build .
 ```

@@ -2,7 +2,7 @@
 
 A tiny cross-platform webview library written in C++ using Edge on Windows (both EdgeHTML and Chromium), Webkit on MacOS, and WebkitGTK on Linux.
 
-Inspired from zerge's [webview](https://github.com/zserge/webview), this library was rewritten with several priorities:
+Inspired from zerge's [webview](https://github.com/webview/webview), this library was rewritten with several priorities:
 
 - A more "C++"-like API
 - Support for Microsoft Edge on Windows
@@ -10,16 +10,15 @@ Inspired from zerge's [webview](https://github.com/zserge/webview), this library
 
 ## Support
 
-|            | Windows             | MacOS                            | Linux                         |
-| ---------- | ------------------- | -------------------------------- | ----------------------------- |
-| Version    | Windows 10, v1809+  | Tested on MacOS Mojave, Catalina | Tested on Ubuntu 18.04.02 LTS |
-| Web Engine | EdgeHTML / Chromium | Webkit                           | WebKit                        |
-| GUI        | Windows API         | Cocoa                            | GTK                           |
+|            | Windows            | Windows            | MacOS                            | Linux                         |
+| ---------- | ------------------ | ------------------ | -------------------------------- | ----------------------------- |
+| Version    | Windows 10, v1809+ | Windows 7, 8.1, 10 | Tested on MacOS Mojave, Catalina | Tested on Ubuntu 18.04.02 LTS |
+| Web Engine | EdgeHTML           | Chromium           | Webkit                           | WebKit                        |
+| GUI        | Windows API        | Windows API        | Cocoa                            | GTK                           |
 
 ## Usage
 
 ```c++
-// main.cpp
 #include "webview.h"
 
 WEBVIEW_MAIN {

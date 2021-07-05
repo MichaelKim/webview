@@ -1,13 +1,12 @@
 cmake_minimum_required (VERSION 3.8)
 project (callback)
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_BINARY_DIR}/webview)
 
-if(WIN32)
-	set(CMAKE_WIN32_EXECUTABLE YES)
-endif()
+# Copy index.html to build directory
+configure_file(index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_BINARY_DIR}/webview)
 add_executable(callback callback.cpp)
-target_link_libraries(callback PUBLIC webview)
+target_compile_features(callback PRIVATE cxx_std_17)
+target_link_libraries(callback PRIVATE webview)
+set_target_properties(callback PROPERTIES WIN32_EXECUTABLE ${WIN32})

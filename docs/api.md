@@ -4,18 +4,18 @@
 
 - [JavaScript API](#javascript-api)
 - [C++ API](#c-api)
-    - [Constructor](#constructor)
-    - [webview.init](#init)
-    - [webview.setCallback](#setcallback)
-    - [webview.setTitle](#settitle)
-    - [webview.setFullscreen](#setfullscreen)
-    - [webview.setBgColor](#setbgcolor)
-    - [webview.run](#run)
-    - [webview.navigate](#navigate)
-    - [webview.preEval](#preeval)
-    - [webview.eval](#eval)
-    - [webview.css](#css)
-    - [webview.exit](#exit)
+  - [Constructor](#constructor)
+  - [webview.init](#init)
+  - [webview.setCallback](#setcallback)
+  - [webview.setTitle](#settitle)
+  - [webview.setFullscreen](#setfullscreen)
+  - [webview.setBgColor](#setbgcolor)
+  - [webview.run](#run)
+  - [webview.navigate](#navigate)
+  - [webview.preEval](#preeval)
+  - [webview.eval](#eval)
+  - [webview.css](#css)
+  - [webview.exit](#exit)
 
 ## JavaScript API
 
@@ -28,7 +28,7 @@ window.exteral.invoke('hello world!');
 
 ```c++
 // C++
-void callback(WebView &w, std::string &arg) {
+void callback(WebView &w, wv::String &arg) {
   // arg = "hello world!"
 }
 ```
@@ -42,7 +42,7 @@ window.external.invoke(JSON.stringify({ foo: 'bar' }));
 
 ## C++ API
 
-Note: On Windows, all strings are `std::wstring`. On MacOS and Linux, they are `std::string`. The only exception is `WebView::setCallback`, which uses `std::string` even on Windows.
+Note: On Windows, all strings are `std::wstring`. On MacOS and Linux, they are `std::string`.
 
 If you need to support Windows, make sure to use Win32 `WinMain` entry point:
 

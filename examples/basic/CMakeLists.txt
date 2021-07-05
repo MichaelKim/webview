@@ -1,13 +1,9 @@
 cmake_minimum_required (VERSION 3.8)
 project (basic)
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_BINARY_DIR}/webview)
 
-if(WIN32)
-	set(CMAKE_WIN32_EXECUTABLE YES)
-endif()
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_BINARY_DIR}/webview)
 add_executable(basic basic.cpp)
-target_link_libraries(basic PUBLIC webview)
+target_compile_features(basic PRIVATE cxx_std_17)
+target_link_libraries(basic PRIVATE webview)
+set_target_properties(basic PROPERTIES WIN32_EXECUTABLE ${WIN32})

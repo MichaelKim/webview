@@ -14,7 +14,7 @@ There are two native web engines for Windows:
 
 - EdgeHTML
 - Chromium
-  - Note: right now, the stable channel doesn't have the required version for the webview to work. As Edge continues to update, this should be fixed.
+  - Right now, the stable channel doesn't have the required version for the webview to work. As Edge continues to update, this should be fixed.
 
 While Trident, the old Internet Explorer's engine, is possible to be used, webview does not support it due to its age, decreasing public support, and poor developer experience.
 
@@ -79,15 +79,29 @@ Follow the instructions in the [official WebView2 docs](https://docs.microsoft.c
 
 To summarize:
 
-- Visual Studio 2017 or 2019
+- Visual Studio 2015 or later
+- Windows 7, 8.1, 10
 - Microsoft Edge (Chromium)
-  - Install the Canary channel as the minimum required version is 82.0.488.0 (currently the Beta channel is too old).
-  - With Windows 10 versions 1803+, the new Edge comes already installed. However, its version is too old for WebView2 (currently at 81.0.416.81).
+  - Install a non-stable channel (Beta, Dev, or Canary) or the [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section)
 - Add the following NuGet packages to the solution:
-  - Microsoft.Windows.ImplementationLibrary
-  - Microsoft.Web.WebView2
+  - [Microsoft.Windows.ImplementationLibrary](https://www.nuget.org/packages/Microsoft.Windows.ImplementationLibrary/)
+  - [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2)
 
-Right now, there is no way to build with Chromium Edge without using Visual Studio due to required Nuget packages. [@webview/webview](https://github.com/webview/webview) gets around this by storing the required packages directly in the repository.
+<details><summary><strong>I don't like Visual Studio! (Edge Chromium)</strong></summary>
+
+To use `cl.exe` directly, you'd need to grab the NuGet packages manually.
+
+1. Download / clone this repo and navigate to it.
+2. Make sure you have the new Edge installed (beta, dev, or canary) or the runtime.
+3. Get the WebView2 package and the Windows Implementation Libraries (WIL) package either by using the [NuGet CLI](https://www.nuget.org/downloads) or downloading them from the NuGet website.
+   - From WebView2, you need the following files:
+     - `.\build\native\include\WebView2.h`
+     - `.\build\native\x86\WebView2LoaderStatic.lib`.
+     - For dynamic linking, use `WebView2Loader.dll.lib` and make sure `WebView2Loader.dll` is located with your executable when running.
+   - From WIL, you need `.\include\wil\`.
+4. Compile by running `cl main.cpp /DWEBVIEW_EDGE /EHsc /std:c++17 /link WebView2LoaderStatic.lib user32.lib Version.lib Advapi32.lib Shell32.lib`.
+
+</details>
 
 ## MacOS
 

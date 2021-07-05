@@ -1,7 +1,7 @@
-// WebView callback example
-// This won't work on EdgeHTML as those webviews can't navigate to local files.
-
-#include <filesystem>
+// WebView callback example, localhost version
+// To run this example, host `index.html` locally at `localhost:8080`.
+// Make sure to add a loopback exception if developing on Windows
+// (check the README).
 
 #include "webview.hpp"
 
@@ -23,14 +23,12 @@ void callback(wv::WebView &w, wv::String &arg) {
 }
 
 WEBVIEW_MAIN {
-    auto cwd = std::filesystem::current_path();
-
     wv::WebView w{800,
                   600,
                   true,
                   true,
-                  Str("WebView Callback"),
-                  Str("file:///") + wv::String(cwd / "index.html")};
+                  Str("WebView Localhost Callback"),
+                  Str("http://localhost:8080")};
 
     // This can be called before or after w.init();
     w.setCallback(callback);
