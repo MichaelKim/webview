@@ -10,25 +10,36 @@
 #define _UNICODE
 #define Str(s) L##s
 #define WIN32_LEAN_AND_MEAN
-#pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "windowsapp")
 
 #include <objbase.h>
 #include <windows.h>
+
+#pragma warning(push)
+#pragma warning(disable : 5205)
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Web.UI.Interop.h>
+#pragma warning(pop)
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
 #define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #define UNICODE
 #define _UNICODE
 #define Str(s) L##s
+#pragma comment(lib, "windowsapp")
+
+#include <WebView2.h>
 #include <tchar.h>
-#include <wil/com.h>
 #include <windows.h>
+
+#pragma warning(push)
+#pragma warning(disable : 4265)
 #include <wrl.h>
+#pragma warning(pop)
 
-#include "WebView2.h"
-
+#pragma warning(push)
+#pragma warning(disable : 4619)
+#include <wil/com.h>
+#pragma warning(pop)
 #elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
 #define WEBVIEW_MAIN int main(int argc, char** argv)
 #define Str(s) s
@@ -274,7 +285,7 @@ int WebView::init() {
     webview = block(proc.CreateWebViewControlAsync(
         reinterpret_cast<int64_t>(hwnd), Rect()));
     webview.Settings().IsScriptNotifyAllowed(true);
-    webview.ScriptNotify([=](auto const& sender, auto const& args) {
+    webview.ScriptNotify([=](auto const&, auto const& args) {
         if (js_callback) {
             std::string s = winrt::to_string(args.Value());
             std::wstring ws(s.begin(), s.end());
@@ -312,7 +323,7 @@ void WebView::setTitle(std::wstring t) {
     }
 }
 
-void WebView::setFullscreen(bool fs) {
+void WebView::setFullscreen(bool) {
     // TODO: implement
 }
 
@@ -473,7 +484,7 @@ int WebView::init() {
     // Create WebView2 environment
     HRESULT hr = CreateCoreWebView2Environment(
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [&](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+            [&](HRESULT, ICoreWebView2Environment* env) -> HRESULT {
                 // Create Webview2 controller
                 HRESULT hr = env->CreateCoreWebView2Controller(
                     hwnd,
@@ -508,7 +519,7 @@ int WebView::init() {
                                 Callback<
                                     ICoreWebView2WebMessageReceivedEventHandler>(
                                     [this](
-                                        ICoreWebView2* webview,
+                                        ICoreWebView2*,
                                         ICoreWebView2WebMessageReceivedEventArgs*
                                             args) -> HRESULT {
                                         // Consider args->get_WebMessageAsJson?
@@ -560,7 +571,7 @@ void WebView::setTitle(std::wstring t) {
     }
 }
 
-void WebView::setFullscreen(bool fs) {
+void WebView::setFullscreen(bool) {
     // TODO: implement
 }
 
@@ -599,14 +610,13 @@ void WebView::preEval(const std::wstring& js) {
 void WebView::eval(const std::wstring& js) {
     // Schedule an async task to get the document URL
     webviewWindow->ExecuteScript(
-        js.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-            [](HRESULT errorCode, LPCWSTR resultObjectAsJson) -> HRESULT {
-                LPCWSTR URL = resultObjectAsJson;
-                // doSomethingWithURL(URL);
-                return S_OK;
-            })
-            .Get());
+        js.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+                        [](HRESULT, LPCWSTR) -> HRESULT {
+                            // LPCWSTR URL = resultObjectAsJson;
+                            // doSomethingWithURL(URL);
+                            return S_OK;
+                        })
+                        .Get());
 
     // if (debug) {
     // std::cout << winrt::to_string(result) << std::endl;
