@@ -6,7 +6,8 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_BINARY_DIR}/
 # Copy index.html to build directory
 configure_file(index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 
+set(CMAKE_WIN32_EXECUTABLE ${WIN32})
+
 add_executable(callback callback.cpp)
 target_compile_features(callback PRIVATE cxx_std_17)
 target_link_libraries(callback PRIVATE webview)
-set_target_properties(callback PROPERTIES WIN32_EXECUTABLE ${WIN32})
