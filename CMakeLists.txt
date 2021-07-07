@@ -70,6 +70,7 @@ elseif(WIN32)
 	execute_process(
 		COMMAND ${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.CppWinRT.${WEBVIEW_CPPWINRT_VERSION}/bin/cppwinrt.exe -in sdk
 	)
+	set(WEBVIEW_COMPILE_INCS ${CMAKE_BINARY_DIR})
 else()
 	set(WEBVIEW_COMPILE_DEFS WEBVIEW_GTK)
 

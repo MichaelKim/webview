@@ -14,11 +14,11 @@
 
 #include <objbase.h>
 #include <windows.h>
+#include <winrt/Windows.Web.UI.Interop.h>
 
 #pragma warning(push)
-#pragma warning(disable : 5205)
+#pragma warning(disable : 4265)
 #include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Web.UI.Interop.h>
 #pragma warning(pop)
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
 #define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
