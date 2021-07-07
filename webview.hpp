@@ -251,11 +251,7 @@ int WebView::init() {
     }
 
     // Set window size
-    RECT r;
-    r.left = 0;
-    r.top = 0;
-    r.right = width;
-    r.bottom = height;
+    RECT r{0, 0, width, height};
     SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
                  r.bottom - r.top,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
@@ -273,7 +269,7 @@ int WebView::init() {
     UpdateWindow(hwnd);
     SetFocus(hwnd);
 
-    // Initialize WinRT WebView
+    // Set to single-thread
     init_apartment(winrt::apartment_type::single_threaded);
 
     // Allow intranet access (and localhost)
@@ -409,9 +405,6 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                 w->resize();
             }
             return DefWindowProc(hwnd, msg, wparam, lparam);
-        case WM_CLOSE:
-            DestroyWindow(hwnd);
-            break;
         case WM_DESTROY:
             w->exit();
             break;
@@ -460,11 +453,7 @@ int WebView::init() {
     }
 
     // Set window size
-    RECT r;
-    r.left = 0;
-    r.top = 0;
-    r.right = width;
-    r.bottom = height;
+    RECT r{0, 0, width, height};
     SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
                  r.bottom - r.top,
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
@@ -481,80 +470,100 @@ int WebView::init() {
     UpdateWindow(hwnd);
     SetFocus(hwnd);
 
+    // Set to single-thread
+    auto inithr = CoInitializeEx(
+        nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(inithr)) {
+        return -1;
+    }
+
+    auto onWebMessageReceieved =
+        [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) {
+            if (js_callback) {
+                // Consider args->get_WebMessageAsJson?
+                LPWSTR messageRaw;
+                auto getMessageResult =
+                    args->TryGetWebMessageAsString(&messageRaw);
+                if (FAILED(getMessageResult)) {
+                    return getMessageResult;
+                }
+
+                std::wstring message(messageRaw);
+                js_callback(*this, message);
+                CoTaskMemFree(messageRaw);
+            }
+            return S_OK;
+        };
+
+    auto onWebViewControllerCreate =
+        [this, onWebMessageReceieved](
+            HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+        if (FAILED(result)) {
+            return result;
+        }
+
+        if (controller != nullptr) {
+            webviewController = controller;
+            webviewController->get_CoreWebView2(&webviewWindow);
+        }
+
+        wil::com_ptr<ICoreWebView2Settings> settings;
+        webviewWindow->get_Settings(&settings);
+        if (!debug) {
+            settings->put_AreDevToolsEnabled(FALSE);
+        }
+
+        // Resize WebView
+        resize();
+
+        webviewWindow->AddScriptToExecuteOnDocumentCreated(inject.c_str(),
+                                                           nullptr);
+
+        EventRegistrationToken token;
+        webviewWindow->add_WebMessageReceived(
+            Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                onWebMessageReceieved)
+                .Get(),
+            &token);
+
+        // Done initialization, set properties
+        init_done = true;
+
+        setTitle(title);
+        if (fullscreen) {
+            setFullscreen(true);
+        }
+        setBgColor(bgR, bgG, bgB, bgA);
+        navigate(url);
+
+        return S_OK;
+    };
+
+    auto onCreateEnvironment = [this, onWebViewControllerCreate](
+                                   HRESULT result,
+                                   ICoreWebView2Environment* env) -> HRESULT {
+        if (result == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) {
+            MessageBox(nullptr, L"Could not find Edge installation.", L"Error!",
+                       NULL);
+            return result;
+        }
+
+        // Create Webview2 controller
+        return env->CreateCoreWebView2Controller(
+            hwnd,
+            Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                onWebViewControllerCreate)
+                .Get());
+    };
+
     // Create WebView2 environment
-    HRESULT hr = CreateCoreWebView2Environment(
+    auto hr = CreateCoreWebView2Environment(
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [&](HRESULT, ICoreWebView2Environment* env) -> HRESULT {
-                // Create Webview2 controller
-                HRESULT hr = env->CreateCoreWebView2Controller(
-                    hwnd,
-                    Callback<
-                        ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                        [&](HRESULT result,
-                            ICoreWebView2Controller* controller) -> HRESULT {
-                            if (FAILED(result)) {
-                                return result;
-                            }
-
-                            if (controller != nullptr) {
-                                webviewController = controller;
-                                webviewController->get_CoreWebView2(
-                                    &webviewWindow);
-                            }
-
-                            wil::com_ptr<ICoreWebView2Settings> settings;
-                            webviewWindow->get_Settings(&settings);
-                            if (!debug) {
-                                settings->put_AreDevToolsEnabled(FALSE);
-                            }
-
-                            // Resize WebView
-                            resize();
-
-                            webviewWindow->AddScriptToExecuteOnDocumentCreated(
-                                inject.c_str(), nullptr);
-
-                            EventRegistrationToken token;
-                            webviewWindow->add_WebMessageReceived(
-                                Callback<
-                                    ICoreWebView2WebMessageReceivedEventHandler>(
-                                    [this](
-                                        ICoreWebView2*,
-                                        ICoreWebView2WebMessageReceivedEventArgs*
-                                            args) -> HRESULT {
-                                        // Consider args->get_WebMessageAsJson?
-                                        LPWSTR messageRaw;
-                                        args->TryGetWebMessageAsString(
-                                            &messageRaw);
-                                        if (js_callback) {
-                                            std::wstring message(messageRaw);
-                                            js_callback(*this, message);
-                                        }
-                                        CoTaskMemFree(messageRaw);
-                                        return S_OK;
-                                    })
-                                    .Get(),
-                                &token);
-
-                            // Done initialization, set properties
-                            init_done = true;
-
-                            setTitle(title);
-                            if (fullscreen) {
-                                setFullscreen(true);
-                            }
-                            setBgColor(bgR, bgG, bgB, bgA);
-                            navigate(url);
-
-                            return S_OK;
-                        })
-                        .Get());
-
-                return hr;
-            })
+            onCreateEnvironment)
             .Get());
 
     if (FAILED(hr)) {
+        CoUninitialize();
         return -1;
     }
 
@@ -639,7 +648,10 @@ void WebView::css(const std::wstring& css) {
         css + L"')");
 }
 
-void WebView::exit() { PostQuitMessage(WM_QUIT); }
+void WebView::exit() {
+    PostQuitMessage(WM_QUIT);
+    CoUninitialize();
+}
 
 void WebView::resize() {
     RECT rc;
@@ -661,9 +673,6 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                 w->resize();
             }
             return DefWindowProc(hwnd, msg, wparam, lparam);
-        case WM_CLOSE:
-            DestroyWindow(hwnd);
-            break;
         case WM_DESTROY:
             w->exit();
             break;
