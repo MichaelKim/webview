@@ -29,17 +29,9 @@
 
 #include <WebView2.h>
 #include <tchar.h>
-#include <windows.h>
-
-#pragma warning(push)
-#pragma warning(disable : 4265)
-#include <wrl.h>
-#pragma warning(pop)
-
-#pragma warning(push)
-#pragma warning(disable : 4619)
 #include <wil/com.h>
-#pragma warning(pop)
+#include <windows.h>
+#include <wrl.h>
 #elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
 #define WEBVIEW_MAIN int main(int argc, char** argv)
 #define Str(s) s

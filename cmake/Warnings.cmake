@@ -29,6 +29,11 @@ function(set_project_warnings project_name)
       /w14906 # string literal cast to 'LPWSTR'
       /w14928 # illegal copy-initialization; more than one user-defined conversion has been implicitly applied
       /permissive- # standards conformance mode for MSVC compiler.
+
+      /experimental:external  # enable external headers diagnostics
+      /external:anglebrackets # treat angle bracket headers as external
+      /external:templates-    # allow warnings from external templates
+      /external:W0            # turn off warnings from external headers
   )
 
   set(CLANG_WARNINGS
