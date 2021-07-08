@@ -84,7 +84,7 @@ endif()
 
 # include(CMakePackageConfigHelpers)
 
-target_include_directories(${PROJECT_NAME} INTERFACE ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
+target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${PROJECT_SOURCE_DIR} ${WEBVIEW_COMPILE_INCS})
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${WEBVIEW_COMPILE_DEFS})
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_17)
 target_compile_options(${PROJECT_NAME} INTERFACE ${WEBVIEW_COMPILE_OPTS})
