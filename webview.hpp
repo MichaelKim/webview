@@ -974,8 +974,10 @@ int WebView::init() {
                          G_CALLBACK(webview_context_menu_cb), nullptr);
     }
 
-    webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(webview), inject.c_str(),
-                                   NULL, NULL, NULL);
+    webkit_user_content_manager_add_script(
+        cm, webkit_user_script_new(
+                inject.c_str(), WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+                WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL));
 
     // Done initialization, set properties
     init_done = true;
