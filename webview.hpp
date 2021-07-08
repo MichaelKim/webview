@@ -13,6 +13,7 @@
 #pragma comment(lib, "windowsapp")
 
 #include <objbase.h>
+#include <shellscalingapi.h>
 #include <windows.h>
 #include <winrt/Windows.Web.UI.Interop.h>
 
@@ -25,9 +26,9 @@
 #define UNICODE
 #define _UNICODE
 #define Str(s) L##s
-#pragma comment(lib, "windowsapp")
 
 #include <WebView2.h>
+#include <shellscalingapi.h>
 #include <tchar.h>
 #include <wil/com.h>
 #include <windows.h>
@@ -142,6 +143,7 @@ private:
     WebViewControl webview{nullptr};
     MSG msg;  // Message from main loop
 
+    void setDPIAwareness();
     void resize();
     static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
@@ -155,6 +157,7 @@ private:
         webviewController;                      // Pointer to WebViewController
     wil::com_ptr<ICoreWebView2> webviewWindow;  // Pointer to WebView window
 
+    void setDPIAwareness();
     void resize();
     static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
@@ -230,6 +233,9 @@ int WebView::init() {
     wc.lpszMenuName = nullptr;
     wc.lpszClassName = L"webview";
     wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+
+    // Set default DPI awareness
+    setDPIAwareness();
 
     RegisterClassEx(&wc);
     hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
@@ -375,6 +381,32 @@ void WebView::css(const std::wstring& css) {
 
 void WebView::exit() { PostQuitMessage(WM_QUIT); }
 
+#define GetProcNameAddress(hmod, proc) \
+    reinterpret_cast<decltype(proc)*>(GetProcAddress(hmod, #proc))
+
+void WebView::setDPIAwareness() {
+    // Set default DPI awareness
+    wil::unique_hmodule user32(LoadLibrary(TEXT("User32.lib")));
+    auto pSPDAC =
+        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
+    if (pSPDAC != nullptr) {
+        // Windows 10
+        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+        return;
+    }
+
+    wil::unique_hmodule shcore(LoadLibrary(TEXT("ShCore.lib")));
+    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
+    if (pSPDA != nullptr) {
+        // Windows 8.1
+        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
+        return;
+    }
+
+    // Windows Vista
+    SetProcessDPIAware();
+}
+
 void WebView::resize() {
     RECT rc;
     GetClientRect(hwnd, &rc);
@@ -433,6 +465,9 @@ int WebView::init() {
 
         return 1;
     }
+
+    // Set default DPI awareness
+    setDPIAwareness();
 
     hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
                         CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
@@ -645,6 +680,32 @@ void WebView::exit() {
     CoUninitialize();
 }
 
+#define GetProcNameAddress(hmod, proc) \
+    reinterpret_cast<decltype(proc)*>(GetProcAddress(hmod, #proc))
+
+void WebView::setDPIAwareness() {
+    // Set default DPI awareness
+    wil::unique_hmodule user32(LoadLibrary(TEXT("User32.lib")));
+    auto pSPDAC =
+        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
+    if (pSPDAC != nullptr) {
+        // Windows 10
+        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+        return;
+    }
+
+    wil::unique_hmodule shcore(LoadLibrary(TEXT("ShCore.lib")));
+    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
+    if (pSPDA != nullptr) {
+        // Windows 8.1
+        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
+        return;
+    }
+
+    // Windows Vista
+    SetProcessDPIAware();
+}
+
 void WebView::resize() {
     RECT rc;
     GetClientRect(hwnd, &rc);
@@ -673,7 +734,7 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
     }
     return 0;
 }
-#elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
+#elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
 int WebView::init() {
     // Initialize autorelease pool
     pool = [NSAutoreleasePool new];
