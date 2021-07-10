@@ -220,8 +220,51 @@ void WebView::setTitle(std::wstring t) {
     }
 }
 
+// Adapted from
+// https://source.chromium.org/chromium/chromium/src/+/main:ui/views/win/fullscreen_handler.cc
 void WebView::setFullscreen(bool fs) {
-    // TODO
+    if (isFullscreen == fs) return;
+
+    isFullscreen = fs;
+
+    if (fs) {
+        // Store window style before going fullscreen
+        savedWindowInfo.style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        savedWindowInfo.exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        GetWindowRect(hwnd, &savedWindowInfo.rect);
+
+        // Set new window style
+        SetWindowLongPtr(hwnd, GWL_STYLE,
+                         savedWindowInfo.style & ~(WS_CAPTION | WS_THICKFRAME));
+        SetWindowLongPtr(
+            hwnd, GWL_EXSTYLE,
+            savedWindowInfo.exstyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE |
+                                        WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+
+        // Get monitor size
+        MONITORINFO monitorInfo;
+        monitorInfo.cbSize = sizeof(monitorInfo);
+        GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST),
+                       &monitorInfo);
+
+        // Set window size to monitor size
+        SetWindowPos(hwnd, nullptr, monitorInfo.rcMonitor.left,
+                     monitorInfo.rcMonitor.top,
+                     monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+                     monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    } else {
+        // Restore window style
+        SetWindowLongPtr(hwnd, GWL_STYLE, savedWindowInfo.style);
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, savedWindowInfo.exstyle);
+
+        // Restore window size
+        SetWindowPos(hwnd, nullptr, savedWindowInfo.rect.left,
+                     savedWindowInfo.rect.top,
+                     savedWindowInfo.rect.right - savedWindowInfo.rect.left,
+                     savedWindowInfo.rect.bottom - savedWindowInfo.rect.top,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
 }
 
 bool WebView::run() {
