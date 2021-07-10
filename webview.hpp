@@ -1,16 +1,31 @@
 #ifndef WEBVIEW_H
 #define WEBVIEW_H
 
-// Headers
-#include <functional>
-#include <string>
-#if defined(WEBVIEW_WIN)
+#if !defined(WEBVIEW_WIN) && !defined(WEBVIEW_EDGE) && \
+    !defined(WEBVIEW_MAC) && !defined(WEBVIEW_GTK)
+#error "Define one of WEBVIEW_WIN, WEBVIEW_EDGE, WEBVIEW_MAC, or WEBVIEW_GTK"
+#endif
+
+#define WEBVIEW_IS_WIN (defined(WEBVIEW_WIN) || defined(WEBVIEW_EDGE))
+
+// Helper defines
+#if defined(WEBVIEW_IS_WIN)
 #define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #define GetProcNameAddress(hmod, proc) \
     reinterpret_cast<decltype(proc)*>(GetProcAddress(hmod, #proc))
 #define UNICODE
 #define _UNICODE
 #define Str(s) L##s
+#else
+#define WEBVIEW_MAIN int main(int argc, char** argv)
+#define Str(s) s
+#endif
+
+// Headers
+#include <functional>
+#include <string>
+
+#if defined(WEBVIEW_WIN)
 #define WIN32_LEAN_AND_MEAN
 #pragma comment(lib, "windowsapp")
 
@@ -27,13 +42,6 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #pragma warning(pop)
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
-#define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-#define GetProcNameAddress(hmod, proc) \
-    reinterpret_cast<decltype(proc)*>(GetProcAddress(hmod, #proc))
-#define UNICODE
-#define _UNICODE
-#define Str(s) L##s
-
 #include <WebView2.h>
 #include <shellscalingapi.h>
 #include <tchar.h>
@@ -41,8 +49,6 @@
 #include <windows.h>
 #include <wrl.h>
 #elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
-#define WEBVIEW_MAIN int main(int argc, char** argv)
-#define Str(s) s
 #import <Cocoa/Cocoa.h>
 #import <Webkit/Webkit.h>
 #include <objc/objc-runtime.h>
@@ -57,13 +63,9 @@
 }
 @end
 #elif defined(WEBVIEW_GTK)  // WEBVIEW_MAC
-#define WEBVIEW_MAIN int main(int argc, char** argv)
-#define Str(s) s
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
-#else  // WEBVIEW_GTK
-#error "Define one of WEBVIEW_WIN, WEBVIEW_EDGE, WEBVIEW_MAC, or WEBVIEW_GTK"
 #endif
 
 constexpr auto DEFAULT_URL = Str(R"(data:text/html,
@@ -88,19 +90,21 @@ constexpr auto DEFAULT_URL = Str(R"(data:text/html,
 */
 
 namespace wv {
-#if defined(WEBVIEW_WIN)
+// wv::String
+#if defined(WEBVIEW_IS_WIN)
 using String = std::wstring;
+#else
+using String = std::string;
+#endif
+
+// Namespaces
+#if defined(WEBVIEW_WIN)
 using namespace winrt::impl;
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Web::UI::Interop;
 #elif defined(WEBVIEW_EDGE)
-using String = std::wstring;
 using namespace Microsoft::WRL;
-#elif defined(WEBVIEW_MAC)
-using String = std::string;
-#elif defined(WEBVIEW_GTK)
-using String = std::string;
 #endif
 
 class WebView {
@@ -142,32 +146,35 @@ private:
     bool init_done = false;  // Finished running init
     uint8_t bgR = 255, bgG = 255, bgB = 255, bgA = 255;
 
+// Common Windows stuff
+#if defined(WEBVIEW_IS_WIN)
+    HINSTANCE hInt = nullptr;
+    HWND hwnd = nullptr;
+    MSG msg;  // Message from main loop
+    bool isFullscreen = false;
+
+    struct WindowInfo {
+        LONG_PTR style;    // GWL_STYLE
+        LONG_PTR exstyle;  // GWL_EXSTYLE
+        RECT rect;         // GetWindowRect
+    } savedWindowInfo;
+
+    void setDPIAwareness();
+    void resize();
+    static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
+                                         LPARAM lparam);
+#endif  // WEBVIEW_WIN || WEBVIEW_EDGE
+
 #if defined(WEBVIEW_WIN)
     String inject =
         Str("window.external.invoke=arg=>window.external.notify(arg);");
-    HINSTANCE hInt = nullptr;
-    HWND hwnd = nullptr;
     WebViewControl webview{nullptr};
-    MSG msg;  // Message from main loop
-
-    void setDPIAwareness();
-    void resize();
-    static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                         LPARAM lparam);
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
     String inject = Str(
         "window.external.invoke=arg=>window.chrome.webview.postMessage(arg);");
-    HINSTANCE hInt = nullptr;
-    HWND hwnd = nullptr;
-    MSG msg = {};  // Message from main loop
     wil::com_ptr<ICoreWebView2Controller>
         webviewController;                      // Pointer to WebViewController
     wil::com_ptr<ICoreWebView2> webviewWindow;  // Pointer to WebView window
-
-    void setDPIAwareness();
-    void resize();
-    static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                         LPARAM lparam);
 #elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
     String inject =
         Str("window.external={invoke:arg=>window.webkit."
@@ -202,6 +209,80 @@ private:
         gpointer userdata);
 #endif                       // WEBVIEW_GTK
 };
+
+// Common Windows methods
+#if defined(WEBVIEW_IS_WIN)
+void WebView::setTitle(std::wstring t) {
+    if (!init_done) {
+        title = t;
+    } else {
+        SetWindowText(hwnd, t.c_str());
+    }
+}
+
+void WebView::setFullscreen(bool fs) {
+    // TODO
+}
+
+bool WebView::run() {
+    bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
+    if (loop) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return !loop;
+}
+
+LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
+                                       LPARAM lparam) {
+    WebView* w =
+        reinterpret_cast<WebView*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
+    switch (msg) {
+        case WM_SIZE:
+            // WM_SIZE will first fire before the webview finishes loading
+            // init() calls resize(), so this call is only for size changes
+            // after fully loading.
+            if (w != nullptr && w->init_done) {
+                w->resize();
+            }
+            return DefWindowProc(hwnd, msg, wparam, lparam);
+        case WM_DESTROY:
+            w->exit();
+            break;
+        default:
+            return DefWindowProc(hwnd, msg, wparam, lparam);
+    }
+    return 0;
+}
+
+void WebView::setDPIAwareness() {
+    // Set default DPI awareness
+    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
+        user32(LoadLibrary(TEXT("User32.dll")), FreeLibrary);
+    // WIL alternative:
+    // wil::unique_hmodule user32(LoadLibrary(TEXT("User32.lib")));
+    auto pSPDAC =
+        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
+    if (pSPDAC != nullptr) {
+        // Windows 10
+        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+        return;
+    }
+
+    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
+        shcore(LoadLibrary(TEXT("ShCore.dll")), FreeLibrary);
+    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
+    if (pSPDA != nullptr) {
+        // Windows 8.1
+        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
+        return;
+    }
+
+    // Windows Vista
+    SetProcessDPIAware();
+}
+#endif
 
 #if defined(WEBVIEW_WIN)
 // Await helper
@@ -314,20 +395,6 @@ int WebView::init() {
     return 0;
 }
 
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::wstring t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        SetWindowText(hwnd, t.c_str());
-    }
-}
-
-void WebView::setFullscreen(bool) {
-    // TODO: implement
-}
-
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
         bgR = r;
@@ -339,15 +406,6 @@ void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     }
 }
 
-bool WebView::run() {
-    bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
-    if (loop) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    return !loop;
-}
-
 void WebView::navigate(std::wstring u) {
     if (!init_done) {
         url = u;
@@ -355,10 +413,6 @@ void WebView::navigate(std::wstring u) {
         Uri uri{u};
         webview.Navigate(uri);
     }
-}
-
-void WebView::preEval(const std::wstring& js) {
-    inject += L"(()=>{" + js + L"})()";
 }
 
 void WebView::eval(const std::wstring& js) {
@@ -370,48 +424,7 @@ void WebView::eval(const std::wstring& js) {
     //}
 }
 
-void WebView::css(const std::wstring& css) {
-    eval(
-        LR"js(
-  (
-    function (css) {
-      if (document.styleSheets.length === 0) {
-        var s = document.createElement('style');
-        s.type = 'text/css';
-        document.head.appendChild(s);
-      }
-      document.styleSheets[0].insertRule(css);
-    }
-  )(')js" +
-        css + L"')");
-}
-
 void WebView::exit() { PostQuitMessage(WM_QUIT); }
-
-void WebView::setDPIAwareness() {
-    // Set default DPI awareness
-    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
-        user32(LoadLibrary(TEXT("User32.dll")), FreeLibrary);
-    auto pSPDAC =
-        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
-    if (pSPDAC != nullptr) {
-        // Windows 10
-        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-        return;
-    }
-
-    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
-        shcore(LoadLibrary(TEXT("ShCore.dll")), FreeLibrary);
-    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
-    if (pSPDA != nullptr) {
-        // Windows 8.1
-        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
-        return;
-    }
-
-    // Windows Vista
-    SetProcessDPIAware();
-}
 
 void WebView::resize() {
     RECT rc;
@@ -419,29 +432,6 @@ void WebView::resize() {
     Rect bounds((float)rc.left, (float)rc.top, (float)(rc.right - rc.left),
                 (float)(rc.bottom - rc.top));
     webview.Bounds(bounds);
-}
-
-LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                       LPARAM lparam) {
-    WebView* w =
-        reinterpret_cast<WebView*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-
-    switch (msg) {
-        case WM_SIZE:
-            // WM_SIZE will first fire before the webview finishes loading
-            // init() calls resize(), so this call is only for size changes
-            // after fully loading.
-            if (w != nullptr && w->init_done) {
-                w->resize();
-            }
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-        case WM_DESTROY:
-            w->exit();
-            break;
-        default:
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-    }
-    return 0;
 }
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
 int WebView::init() {
@@ -603,20 +593,6 @@ int WebView::init() {
     return 0;
 }
 
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
-void WebView::setTitle(std::wstring t) {
-    if (!init_done) {
-        title = t;
-    } else {
-        SetWindowText(hwnd, t.c_str());
-    }
-}
-
-void WebView::setFullscreen(bool) {
-    // TODO: implement
-}
-
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
         bgR = r;
@@ -628,25 +604,12 @@ void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     }
 }
 
-bool WebView::run() {
-    bool loop = GetMessage(&msg, nullptr, 0, 0) > 0;
-    if (loop) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    return !loop;
-}
-
 void WebView::navigate(std::wstring u) {
     if (!init_done) {
         url = u;
     } else {
         webviewWindow->Navigate(u.c_str());
     }
-}
-
-void WebView::preEval(const std::wstring& js) {
-    inject += L"(()=>{" + js + L"})()";
 }
 
 void WebView::eval(const std::wstring& js) {
@@ -665,77 +628,15 @@ void WebView::eval(const std::wstring& js) {
     //}
 }
 
-void WebView::css(const std::wstring& css) {
-    eval(
-        LR"js(
-  (
-    function (css) {
-      if (document.styleSheets.length === 0) {
-        var s = document.createElement('style');
-        s.type = 'text/css';
-        document.head.appendChild(s);
-      }
-      document.styleSheets[0].insertRule(css);
-    }
-  )(')js" +
-        css + L"')");
-}
-
 void WebView::exit() {
     PostQuitMessage(WM_QUIT);
     CoUninitialize();
-}
-
-void WebView::setDPIAwareness() {
-    // Set default DPI awareness
-    wil::unique_hmodule user32(LoadLibrary(TEXT("User32.lib")));
-    auto pSPDAC =
-        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
-    if (pSPDAC != nullptr) {
-        // Windows 10
-        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-        return;
-    }
-
-    wil::unique_hmodule shcore(LoadLibrary(TEXT("ShCore.lib")));
-    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
-    if (pSPDA != nullptr) {
-        // Windows 8.1
-        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
-        return;
-    }
-
-    // Windows Vista
-    SetProcessDPIAware();
 }
 
 void WebView::resize() {
     RECT rc;
     GetClientRect(hwnd, &rc);
     webviewController->put_Bounds(rc);
-}
-
-LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
-                                       LPARAM lparam) {
-    WebView* w =
-        reinterpret_cast<WebView*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-
-    switch (msg) {
-        case WM_SIZE:
-            // WM_SIZE will first fire before the webview finishes loading
-            // init() calls resize(), so this call is only for size changes
-            // after fully loading.
-            if (w != nullptr && w->init_done) {
-                w->resize();
-            }
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-        case WM_DESTROY:
-            w->exit();
-            break;
-        default:
-            return DefWindowProc(hwnd, msg, wparam, lparam);
-    }
-    return 0;
 }
 #elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
 int WebView::init() {
@@ -837,8 +738,6 @@ int WebView::init() {
     return 0;
 }
 
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
 void WebView::setTitle(std::string t) {
     if (!init_done) {
         title = t;
@@ -895,28 +794,9 @@ void WebView::navigate(std::string u) {
     }
 }
 
-void WebView::preEval(const std::string& js) {
-    inject += "(()=>{" + js + "})()";
-}
-
 void WebView::eval(const std::string& js) {
     [webview evaluateJavaScript:[NSString stringWithUTF8String:js.c_str()]
               completionHandler:nil];
-}
-
-void WebView::css(const std::string& css) {
-    eval(R"js(
-    (
-      function (css) {
-        if (document.styleSheets.length === 0) {
-          var s = document.createElement('style');
-          s.type = 'text/css';
-          document.head.appendChild(s);
-        }
-        document.styleSheets[0].insertRule(css);
-      }
-    )(')js" +
-         css + "')");
 }
 
 void WebView::exit() {
@@ -996,8 +876,6 @@ int WebView::init() {
     return 0;
 }
 
-void WebView::setCallback(jscb callback) { js_callback = callback; }
-
 void WebView::setTitle(std::string t) {
     if (!init_done) {
         title = t;
@@ -1041,10 +919,6 @@ void WebView::navigate(std::string u) {
     }
 }
 
-void WebView::preEval(const std::string& js) {
-    inject += "(()=>{" + js + "})()";
-}
-
 void WebView::eval(const std::string& js) {
     while (!ready) {
         g_main_context_iteration(NULL, TRUE);
@@ -1055,21 +929,6 @@ void WebView::eval(const std::string& js) {
     while (js_busy) {
         g_main_context_iteration(NULL, TRUE);
     }
-}
-
-void WebView::css(const std::string& css) {
-    eval(R"js(
-    (
-      function (css) {
-        if (document.styleSheets.length === 0) {
-          var s = document.createElement('style');
-          s.type = 'text/css';
-          document.head.appendChild(s);
-        }
-        document.styleSheets[0].insertRule(css);
-      }
-    )(')js" +
-         css + "')");
 }
 
 void WebView::exit() { should_exit = true; }
@@ -1115,6 +974,27 @@ gboolean WebView::webview_context_menu_cb(WebKitWebView* webview,
     return TRUE;
 }
 #endif                      // WEBVIEW_GTK
+
+void WebView::css(const wv::String& css) {
+    eval(Str(R"js(
+    (
+      function (css) {
+        if (document.styleSheets.length === 0) {
+          var s = document.createElement('style');
+          s.type = 'text/css';
+          document.head.appendChild(s);
+        }
+        document.styleSheets[0].insertRule(css);
+      }
+    )(')js") +
+         css + Str("')"));
+}
+
+void WebView::setCallback(jscb callback) { js_callback = callback; }
+
+void WebView::preEval(const wv::String& js) {
+    inject += Str("(()=>{") + js + Str("})()");
+}
 
 }  // namespace wv
 
