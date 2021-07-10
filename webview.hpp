@@ -159,6 +159,7 @@ private:
         RECT rect;         // GetWindowRect
     } savedWindowInfo;
 
+    int WinInit();
     void setDPIAwareness();
     void resize();
     static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
@@ -212,6 +213,68 @@ private:
 
 // Common Windows methods
 #if defined(WEBVIEW_IS_WIN)
+int WebView::WinInit() {
+    hInt = GetModuleHandle(nullptr);
+    if (hInt == nullptr) {
+        return -1;
+    }
+
+    // Initialize Win32 window
+    WNDCLASSEX wc;
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = 0;
+    wc.lpfnWndProc = WndProcedure;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = hInt;
+    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszMenuName = nullptr;
+    wc.lpszClassName = L"webview";
+    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+
+    if (!RegisterClassEx(&wc)) {
+        MessageBox(nullptr, L"Call to RegisterClassEx failed!", L"Error!",
+                   NULL);
+
+        return 1;
+    }
+
+    // Set default DPI awareness
+    setDPIAwareness();
+
+    hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
+                        nullptr, hInt, nullptr);
+
+    if (hwnd == nullptr) {
+        MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
+                   MB_ICONEXCLAMATION | MB_OK);
+        return 1;
+    }
+
+    // Set window size
+    RECT r{0, 0, width, height};
+    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
+                 r.bottom - r.top,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+    if (!resizable) {
+        auto style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+        SetWindowLongPtr(hwnd, GWL_STYLE, style);
+    }
+
+    // Used with GetWindowLongPtr in WndProcedure
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+    ShowWindow(hwnd, SW_SHOWDEFAULT);
+    UpdateWindow(hwnd);
+    SetFocus(hwnd);
+
+    return 0;
+}
+
 void WebView::setTitle(std::wstring t) {
     if (!init_done) {
         title = t;
@@ -345,58 +408,9 @@ auto block(T const& async) {
 }
 
 int WebView::init() {
-    hInt = GetModuleHandle(nullptr);
-    if (hInt == nullptr) {
-        return -1;
+    if (auto res = WinInit(); res) {
+        return res;
     }
-
-    // Initialize Win32 window
-    WNDCLASSEX wc;
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = 0;
-    wc.lpfnWndProc = WndProcedure;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
-    wc.hInstance = hInt;
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszMenuName = nullptr;
-    wc.lpszClassName = L"webview";
-    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
-
-    // Set default DPI awareness
-    setDPIAwareness();
-
-    RegisterClassEx(&wc);
-    hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
-                        nullptr, hInt, nullptr);
-
-    if (hwnd == nullptr) {
-        MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
-                   MB_ICONEXCLAMATION | MB_OK);
-        return 0;
-    }
-
-    // Set window size
-    RECT r{0, 0, width, height};
-    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
-                 r.bottom - r.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-    if (!resizable) {
-        auto style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
-        SetWindowLongPtr(hwnd, GWL_STYLE, style);
-    }
-
-    // Used with GetWindowLongPtr
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
-
-    ShowWindow(hwnd, SW_SHOWDEFAULT);
-    UpdateWindow(hwnd);
-    SetFocus(hwnd);
 
     // Set to single-thread
     init_apartment(winrt::apartment_type::single_threaded);
@@ -478,63 +492,9 @@ void WebView::resize() {
 }
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
 int WebView::init() {
-    hInt = GetModuleHandle(nullptr);
-    if (hInt == nullptr) {
-        return -1;
+    if (auto res = WinInit(); res) {
+        return res;
     }
-
-    // Initialize Win32 window
-    WNDCLASSEX wc;
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = 0;
-    wc.lpfnWndProc = WndProcedure;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
-    wc.hInstance = hInt;
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszMenuName = nullptr;
-    wc.lpszClassName = L"webview";
-    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
-
-    if (!RegisterClassEx(&wc)) {
-        MessageBox(nullptr, L"Call to RegisterClassEx failed!", L"Error!",
-                   NULL);
-
-        return 1;
-    }
-
-    // Set default DPI awareness
-    setDPIAwareness();
-
-    hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
-                        nullptr, hInt, nullptr);
-
-    if (hwnd == nullptr) {
-        MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
-                   MB_ICONEXCLAMATION | MB_OK);
-        return 1;
-    }
-
-    // Set window size
-    RECT r{0, 0, width, height};
-    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
-                 r.bottom - r.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-    if (!resizable) {
-        auto style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
-        SetWindowLongPtr(hwnd, GWL_STYLE, style);
-    }
-
-    // Used with GetWindowLongPtr in WndProcedure
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
-    ShowWindow(hwnd, SW_SHOWDEFAULT);
-    UpdateWindow(hwnd);
-    SetFocus(hwnd);
 
     // Set to single-thread
     auto inithr = CoInitializeEx(
