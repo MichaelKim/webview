@@ -19,7 +19,7 @@
 #define _UNICODE
 #define Str(s) L##s
 #else
-#define WEBVIEW_MAIN int main(int argc, char** argv)
+#define WEBVIEW_MAIN int main(int, char**)
 #define Str(s) s
 #endif
 
@@ -113,14 +113,14 @@ class WebView {
     using jscb = std::function<void(WebView&, String&)>;
 
 public:
-    WebView(int width, int height, bool resizable, bool debug,
-            const String& title, const String& url = DEFAULT_URL)
-        : width(width),
-          height(height),
-          resizable(resizable),
-          debug(debug),
-          title(title),
-          url(url) {}
+    WebView(int width_, int height_, bool resizable_, bool debug_,
+            const String& title_, const String& url_ = DEFAULT_URL)
+        : width(width_),
+          height(height_),
+          resizable(resizable_),
+          debug(debug_),
+          title(title_),
+          url(url_) {}
     int init();                       // Initialize webview
     void setCallback(jscb callback);  // JS callback
     void setTitle(String t);          // Set title of window
@@ -938,7 +938,7 @@ void WebView::eval(const std::string& js) {
 
 void WebView::exit() { should_exit = true; }
 
-void WebView::external_message_received_cb(WebKitUserContentManager* m,
+void WebView::external_message_received_cb(WebKitUserContentManager*,
                                            WebKitJavascriptResult* r,
                                            gpointer arg) {
     WebView* w = static_cast<WebView*>(arg);
@@ -949,19 +949,18 @@ void WebView::external_message_received_cb(WebKitUserContentManager* m,
     }
 }
 
-void WebView::webview_eval_finished(GObject* object, GAsyncResult* result,
-                                    gpointer arg) {
+void WebView::webview_eval_finished(GObject*, GAsyncResult*, gpointer arg) {
     static_cast<WebView*>(arg)->js_busy = false;
 }
 
-void WebView::webview_load_changed_cb(WebKitWebView* webview,
-                                      WebKitLoadEvent event, gpointer arg) {
+void WebView::webview_load_changed_cb(WebKitWebView*, WebKitLoadEvent event,
+                                      gpointer arg) {
     if (event == WEBKIT_LOAD_FINISHED) {
         static_cast<WebView*>(arg)->ready = true;
     }
 }
 
-void WebView::destroyWindowCb(GtkWidget* widget, gpointer arg) {
+void WebView::destroyWindowCb(GtkWidget*, gpointer arg) {
     static_cast<WebView*>(arg)->exit();
 }
 
@@ -970,11 +969,9 @@ void WebView::destroyWindowCb(GtkWidget* widget, gpointer arg) {
 //   return TRUE;
 // }
 
-gboolean WebView::webview_context_menu_cb(WebKitWebView* webview,
-                                          GtkWidget* default_menu,
-                                          WebKitHitTestResult* hit_test_result,
-                                          gboolean triggered_with_keyboard,
-                                          gpointer userdata) {
+gboolean WebView::webview_context_menu_cb(WebKitWebView*, GtkWidget*,
+                                          WebKitHitTestResult*, gboolean,
+                                          gpointer) {
     // Always hide context menu if not debug
     return TRUE;
 }

@@ -17,7 +17,7 @@ void callback(wv::WebView &w, wv::String &arg) {
     try {
         long long num = std::stoll(arg);
         w.eval(Str("result(") + to_string(factorial(num)) + Str(")"));
-    } catch (std::exception &e) {
+    } catch (std::exception &) {
         w.eval(Str("result('Invalid number')"));
     }
 }
