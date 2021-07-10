@@ -6,7 +6,9 @@
 #error "Define one of WEBVIEW_WIN, WEBVIEW_EDGE, WEBVIEW_MAC, or WEBVIEW_GTK"
 #endif
 
-#define WEBVIEW_IS_WIN (defined(WEBVIEW_WIN) || defined(WEBVIEW_EDGE))
+#if defined(WEBVIEW_WIN) || defined(WEBVIEW_EDGE)
+#define WEBVIEW_IS_WIN
+#endif
 
 // Helper defines
 #if defined(WEBVIEW_IS_WIN)
