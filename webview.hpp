@@ -676,7 +676,9 @@ int WebView::init() {
     WKWebViewConfiguration* config = [WKWebViewConfiguration new];
     WKPreferences* prefs = [config preferences];
     [prefs setJavaScriptCanOpenWindowsAutomatically:NO];
-    [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+    if (debug) {
+        [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
+    }
 
     WKUserContentController* controller = [config userContentController];
     // Add inject script
@@ -691,15 +693,14 @@ int WebView::init() {
     // Add delegate methods manually in order to capture "this"
     class_replaceMethod(
         [WindowDelegate class], @selector(windowWillClose:),
-        imp_implementationWithBlock(
-            [=](id self, SEL cmd, id notification) { this->exit(); }),
+        imp_implementationWithBlock([=](id, SEL, id) { this->exit(); }),
         "v@:@");
 
     class_replaceMethod(
         [WindowDelegate class],
         @selector(userContentController:didReceiveScriptMessage:),
         imp_implementationWithBlock(
-            [=](id self, SEL cmd, WKScriptMessage* scriptMessage) {
+            [=](id, SEL, WKScriptMessage* scriptMessage) {
                 if (this->js_callback) {
                     id body = [scriptMessage body];
                     if (![body isKindOfClass:[NSString class]]) {
