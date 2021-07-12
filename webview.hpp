@@ -113,8 +113,9 @@ class WebView {
     using jscb = std::function<void(WebView&, String&)>;
 
 public:
-    WebView(int width_, int height_, bool resizable_, bool debug_,
-            const String& title_, const String& url_ = DEFAULT_URL)
+    WebView(int width_ = 800, int height_ = 600, bool resizable_ = true,
+            bool debug_ = true, const String& title_ = Str("Webview"),
+            const String& url_ = DEFAULT_URL)
         : width(width_),
           height(height_),
           resizable(resizable_),

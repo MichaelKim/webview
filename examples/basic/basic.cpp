@@ -3,8 +3,9 @@
 #include "webview.hpp"
 
 WEBVIEW_MAIN {
-    wv::WebView w{
-        800, 600, true, true, Str("WebView"), Str("http://www.google.com")};
+    wv::WebView w;
+
+    w.navigate(Str("http://www.google.com"));
 
     if (w.init() == -1) {
         return 1;
