@@ -7,6 +7,7 @@
   - [Chromium](#chromium-edge) (Microsoft Edge, recommended)
 - [MacOS](#macos)
 - [Linux](#linux)
+- [Unit Tests](#unit-tests)
 
 If you have CMake installed, the included config should work for all platforms.
 
@@ -35,7 +36,7 @@ A few things to note:
 - To debug, install the [Microsoft Edge DevTools](https://www.microsoft.com/en-us/p/microsoft-edge-devtools-preview/9mzbfrmz0mnj).
 - Displaying `localhost` in the webview will only work after adding a loopback exception. A simple way to enable this is to run
 
-  ```
+  ```pwsh
   CheckNetIsolation.exe LoopbackExempt -a -n=Microsoft.Win32WebViewHost_cw5n1h2txyewy
   ```
 
@@ -119,7 +120,7 @@ Use the provided CMake config to compile. Otherwise, to manually compile,
 
 For example,
 
-```
+```sh
 clang++ main.cpp -DWEBVIEW_MAC -ObjC++ -std=c++11 -framework Cocoa -framework Webkit -o my_webview
 ```
 
@@ -127,7 +128,7 @@ clang++ main.cpp -DWEBVIEW_MAC -ObjC++ -std=c++11 -framework Cocoa -framework We
 
 webview depends on `gtk+-3.0` and `webkit2gtk-4.0`:
 
-```
+```sh
 sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-37 libwebkit2gtk-4.0-dev
 ```
 
@@ -141,3 +142,30 @@ For example,
 ```sh
 g++ main.cpp -DWEBVIEW_GTK `pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0` -o my_webview
 ```
+
+## Unit Tests
+
+To build and run the tests,
+
+```sh
+mkdir build
+cd build
+cmake ../test
+cmake --build .
+ctest --timeout 5
+```
+
+Certain tests will load files from `localhost:8080`. Before running tests, make sure to locally host the `build` directory (or wherever CMake is configured). For example,
+
+```sh
+python3 -m http.server 8080 # Python 3
+
+npm install -g http-server
+http-server -p 8080         # Node
+```
+
+### Running Headless Tests
+
+- Windows: Currently, there's no way to run the tests in a headless environment.
+- MacOS: Supported.
+- Linux: You'll need to run `xvfb` (or similar) before running.
