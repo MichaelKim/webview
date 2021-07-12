@@ -52,7 +52,7 @@ Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
 #ifdef WEBVIEW_WIN
 #define WEBVIEW_MAIN int __stdcall WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #else
-#define WEBVIEW_MAIN int main(int argc, char **argv)
+#define WEBVIEW_MAIN int main(int, char **)
 #endif
 ```
 

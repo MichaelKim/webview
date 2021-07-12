@@ -103,6 +103,7 @@ To use `cl.exe` directly, you'd need to grab the NuGet packages manually.
      - For dynamic linking, use `WebView2Loader.dll.lib` and make sure `WebView2Loader.dll` is located with your executable when running.
    - From WIL, you need `.\include\wil\`.
 4. Compile by running `cl main.cpp /DWEBVIEW_EDGE /EHsc /std:c++17 /link WebView2LoaderStatic.lib user32.lib Version.lib Advapi32.lib Shell32.lib`.
+   - On Windows 8.1, you may also need to link `ShCore.lib`.
 
 </details>
 
