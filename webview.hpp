@@ -790,6 +790,9 @@ bool WebView::run() {
 void WebView::navigate(std::string u) {
     if (!init_done) {
         url = u;
+    } else if (u.rfind("data:", 0) == 0) {
+        [webview loadHTMLString:[NSString stringWithUTF8String:u.c_str()]
+                        baseURL:nil];
     } else {
         [webview
             loadRequest:[NSURLRequest
