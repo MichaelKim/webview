@@ -1,5 +1,5 @@
-cmake_minimum_required (VERSION 3.8)
-project (localhost)
+cmake_minimum_required(VERSION 3.8)
+project(localhost LANGUAGES CXX)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_BINARY_DIR}/webview)
 

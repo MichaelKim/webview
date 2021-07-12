@@ -30,7 +30,7 @@ if(APPLE)
 	set(WEBVIEW_LIBS ${COCOA_LIBRARY} ${WEBKIT_LIBRARY})
 
 	# Enable Objective C++
-	# enable_language(OBJCXX)
+	enable_language(OBJCXX)
 	set(WEBVIEW_COMPILE_OPTS "-ObjC++")
 elseif(WIN32 AND WEBVIEW_USE_EDGE)
 	set(WEBVIEW_COMPILE_DEFS WEBVIEW_EDGE)
