@@ -38,6 +38,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 #pragma warning(push)
 #pragma warning(disable : 4265)
@@ -50,6 +51,8 @@
 #include <wil/com.h>
 #include <windows.h>
 #include <wrl.h>
+
+#include <utility>
 #elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
 #import <Cocoa/Cocoa.h>
 #import <Webkit/Webkit.h>
@@ -151,10 +154,10 @@ private:
 
 // Common Windows stuff
 #if defined(WEBVIEW_IS_WIN)
-    HINSTANCE hInt = nullptr;
     HWND hwnd = nullptr;
     MSG msg;  // Message from main loop
     bool isFullscreen = false;
+    UINT dpi = USER_DEFAULT_SCREEN_DPI;
 
     struct WindowInfo {
         LONG_PTR style;    // GWL_STYLE
@@ -163,7 +166,7 @@ private:
     } savedWindowInfo;
 
     int WinInit();
-    void setDPIAwareness();
+    void onDPIChange(const UINT dpi, const RECT& rect);
     void resize();
     static LRESULT CALLBACK WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
@@ -216,14 +219,74 @@ private:
 
 // Common Windows methods
 #if defined(WEBVIEW_IS_WIN)
+auto LoadLibraryPtr(LPCWSTR dll) {
+    // WIL alternative: wil::unique_hmodule(LoadLibrary(dll));
+    return std::unique_ptr<std::remove_pointer_t<HMODULE>,
+                           decltype(&::FreeLibrary)>(LoadLibrary(dll),
+                                                     FreeLibrary);
+}
+
+void setDPIAwareness() {
+    // Set default DPI awareness
+    auto user32 = LoadLibraryPtr(TEXT("User32.dll"));
+    auto pSPDAC =
+        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
+    if (pSPDAC != nullptr) {
+        // Windows 10
+        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        return;
+    }
+
+    auto shcore = LoadLibraryPtr(TEXT("ShCore.dll"));
+    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
+    if (pSPDA != nullptr) {
+        // Windows 8.1
+        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
+        return;
+    }
+
+    // Windows Vista
+    SetProcessDPIAware();  // Equivalent to DPI_AWARENESS_CONTEXT_SYSTEM_AWARE
+}
+
+UINT getDPI(HWND hwnd) {
+    auto user32 = LoadLibraryPtr(TEXT("User32.dll"));
+    auto pGDFW = GetProcNameAddress(user32.get(), GetDpiForWindow);
+    if (pGDFW != nullptr) {
+        // Windows 10
+        return pGDFW(hwnd);
+    }
+
+    auto shcore = LoadLibraryPtr(TEXT("ShCore.dll"));
+    auto pGDFM = GetProcNameAddress(shcore.get(), GetDpiForMonitor);
+    if (pGDFM != nullptr) {
+        // Windows 8.1
+        UINT newDpi;
+        HMONITOR hmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        HRESULT hr = pGDFM(hmonitor, MDT_EFFECTIVE_DPI, &newDpi, nullptr);
+        if (SUCCEEDED(hr)) {
+            return newDpi;
+        }
+    }
+
+    // Windows 2000
+    if (HDC hdc = GetDC(hwnd)) {
+        auto dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd, hdc);
+        return dpi;
+    }
+
+    return USER_DEFAULT_SCREEN_DPI;
+}
+
 int WebView::WinInit() {
-    hInt = GetModuleHandle(nullptr);
+    HINSTANCE hInt = GetModuleHandle(nullptr);
     if (hInt == nullptr) {
         return -1;
     }
 
     // Initialize Win32 window
-    WNDCLASSEX wc;
+    WNDCLASSEX wc{};
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = 0;
     wc.lpfnWndProc = WndProcedure;
@@ -248,7 +311,7 @@ int WebView::WinInit() {
     setDPIAwareness();
 
     hwnd = CreateWindow(L"webview", title.c_str(), WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
+                        CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr,
                         nullptr, hInt, nullptr);
 
     if (hwnd == nullptr) {
@@ -257,10 +320,14 @@ int WebView::WinInit() {
         return 1;
     }
 
-    // Set window size
-    RECT r{0, 0, width, height};
-    SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
-                 r.bottom - r.top,
+    // Scale window based on DPI
+    dpi = getDPI(hwnd);
+
+    RECT rect = {};
+    GetWindowRect(hwnd, &rect);
+    SetWindowPos(hwnd, nullptr, rect.left, rect.top,
+                 MulDiv(width, dpi, USER_DEFAULT_SCREEN_DPI),
+                 MulDiv(height, dpi, USER_DEFAULT_SCREEN_DPI),
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
     if (!resizable) {
@@ -356,6 +423,14 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
                 w->resize();
             }
             return DefWindowProc(hwnd, msg, wparam, lparam);
+        case WM_DPICHANGED:
+            if (w != nullptr) {
+                // Resize on DPI change
+                UINT dpi = HIWORD(wparam);
+                const auto& rect = *reinterpret_cast<RECT*>(lparam);
+                w->onDPIChange(dpi, rect);
+            }
+            break;
         case WM_DESTROY:
             w->exit();
             break;
@@ -365,31 +440,22 @@ LRESULT CALLBACK WebView::WndProcedure(HWND hwnd, UINT msg, WPARAM wparam,
     return 0;
 }
 
-void WebView::setDPIAwareness() {
-    // Set default DPI awareness
-    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
-        user32(LoadLibrary(TEXT("User32.dll")), FreeLibrary);
-    // WIL alternative:
-    // wil::unique_hmodule user32(LoadLibrary(TEXT("User32.lib")));
-    auto pSPDAC =
-        GetProcNameAddress(user32.get(), SetProcessDpiAwarenessContext);
-    if (pSPDAC != nullptr) {
-        // Windows 10
-        pSPDAC(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-        return;
-    }
+void WebView::onDPIChange(const UINT newDpi, const RECT& rect) {
+    auto oldDpi = std::exchange(dpi, newDpi);
 
-    std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)>
-        shcore(LoadLibrary(TEXT("ShCore.dll")), FreeLibrary);
-    auto pSPDA = GetProcNameAddress(shcore.get(), SetProcessDpiAwareness);
-    if (pSPDA != nullptr) {
-        // Windows 8.1
-        pSPDA(PROCESS_PER_MONITOR_DPI_AWARE);
-        return;
+    if (isFullscreen) {
+        // Scale the saved window size by the change in DPI
+        auto oldWidth = savedWindowInfo.rect.right - savedWindowInfo.rect.left;
+        auto oldHeight = savedWindowInfo.rect.bottom - savedWindowInfo.rect.top;
+        savedWindowInfo.rect.right =
+            savedWindowInfo.rect.left + MulDiv(oldWidth, newDpi, oldDpi);
+        savedWindowInfo.rect.bottom =
+            savedWindowInfo.rect.top + MulDiv(oldHeight, newDpi, oldDpi);
+    } else {
+        SetWindowPos(hwnd, nullptr, rect.left, rect.top, rect.right - rect.left,
+                     rect.bottom - rect.top,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
-
-    // Windows Vista
-    SetProcessDPIAware();
 }
 #endif
 

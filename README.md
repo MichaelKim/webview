@@ -16,6 +16,11 @@ Inspired from zerge's [webview](https://github.com/webview/webview), this librar
 | Web Engine | EdgeHTML           | Chromium           | Webkit                           | WebKit                        |
 | GUI        | Windows API        | Windows API        | Cocoa                            | GTK                           |
 
+## Documentation
+
+- [Build Steps](docs/build.md)
+- [API Reference](docs/api.md)
+
 ## Usage
 
 ```c++
@@ -66,8 +71,3 @@ There are several limitations on Windows stemming from the EdgeHTML webview:
 - The webview cannot navigate to local HTML files (i.e: `file:///...`).
 
 These can be avoided by using the new Chromium Edge webview.
-
-# Documentation
-
-- [Build Steps](docs/build.md)
-- [API Reference](docs/api.md)
