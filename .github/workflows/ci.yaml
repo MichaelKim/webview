@@ -1,0 +1,96 @@
+name: CMake CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        type: ['edge', 'win']
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache CMake
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ runner.os }}-${{ matrix.type }}
+
+      - name: Get Windows SDK
+        shell: pwsh
+        run: |
+          mkdir ${{ github.workspace }}/winsdktemp
+          $client = new-object System.Net.WebClient
+          $client.DownloadFile("https://go.microsoft.com/fwlink/p/?linkid=2120843", "${{github.workspace}}/winsdktemp/winsdksetup.exe")
+          Start-Process -Wait "${{ github.workspace }}/winsdktemp/winsdksetup.exe" "/features OptionId.UWPCpp /q"
+
+      - name: Configure CMake
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DWEBVIEW_USE_EDGE=${{ matrix.type == 'edge' && 'ON' || 'OFF' }} test
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{env.BUILD_TYPE}}
+
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache CMake
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ runner.os }}
+
+      - name: Configure CMake
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} test
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: |
+          python3 -m http.server 8080 &
+          PYTHON3_PID=$!
+          ctest -C ${{env.BUILD_TYPE}} --timeout 5
+          kill $PYTHON3_PID
+
+  build-ubuntu:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-37 libwebkit2gtk-4.0-dev xvfb -y
+
+      - name: Cache CMake
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ runner.os }}
+
+      - name: Configure CMake
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} test
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: |
+          python3 -m http.server 8080 &
+          PYTHON3_PID=$!
+          xvfb-run ctest -C ${{env.BUILD_TYPE}} --timeout 5
+          kill $PYTHON3_PID
