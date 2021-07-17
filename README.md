@@ -1,5 +1,7 @@
 # webview
 
+[![CMake CI](https://github.com/MichaelKim/webview/actions/workflows/ci.yaml/badge.svg)](https://github.com/MichaelKim/webview/actions/workflows/ci.yaml)
+
 A tiny cross-platform webview library written in C++ using Edge on Windows (both EdgeHTML and Chromium), Webkit on MacOS, and WebkitGTK on Linux.
 
 Inspired from zerge's [webview](https://github.com/webview/webview), this library was rewritten with several priorities:
