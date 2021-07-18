@@ -27,18 +27,35 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.type }}
 
       - name: Get Windows SDK
-        shell: pwsh
         run: |
+          $url = "${{ github.workspace }}/winsdktemp/winsdksetup.exe"
           mkdir ${{ github.workspace }}/winsdktemp
-          $client = new-object System.Net.WebClient
-          $client.DownloadFile("https://go.microsoft.com/fwlink/p/?linkid=2120843", "${{github.workspace}}/winsdktemp/winsdksetup.exe")
-          Start-Process -Wait "${{ github.workspace }}/winsdktemp/winsdksetup.exe" "/features OptionId.UWPCpp /q"
+          $client = New-Object System.Net.WebClient
+          $client.DownloadFile("https://go.microsoft.com/fwlink/p/?linkid=2120843", $url)
+          Start-Process -Wait $url "/features OptionId.UWPCpp /q"
+
+      - name: Get WebView2 Runtime
+        if: ${{ matrix.type == 'edge' }}
+        run: |
+          $url = "${{ github.workspace }}/webview2/MicrosoftEdgeWebview2Setup.exe"
+          mkdir ${{ github.workspace }}/webview2
+          $client = New-Object System.Net.WebClient
+          $client.DownloadFile("https://go.microsoft.com/fwlink/p/?LinkId=2124703", $url)
+          Start-Process -Wait $url "/silent /install"
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DWEBVIEW_USE_EDGE=${{ matrix.type == 'edge' && 'ON' || 'OFF' }} test
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        if: ${{ matrix.type == 'edge' }}
+        run: |
+          $PYTHON3_PROC = Start-Process -NoNewWindow -PassThru python3 -ArgumentList '-m', 'http.server', '8080'
+          ctest -C ${{env.BUILD_TYPE}} --timeout 5
+          Stop-Process $PYTHON3_PROC.Id
 
   build-mac:
     runs-on: macos-latest
