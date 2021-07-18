@@ -296,7 +296,7 @@ int WebView::WinInit() {
         MessageBox(nullptr, L"Call to RegisterClassEx failed!", L"Error!",
                    NULL);
 
-        return 1;
+        return -1;
     }
 
     // Set default DPI awareness
@@ -309,7 +309,7 @@ int WebView::WinInit() {
     if (hwnd == nullptr) {
         MessageBox(nullptr, L"Window Registration Failed!", L"Error!",
                    MB_ICONEXCLAMATION | MB_OK);
-        return 1;
+        return -1;
     }
 
     // Scale window based on DPI
