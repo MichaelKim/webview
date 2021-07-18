@@ -527,6 +527,10 @@ void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 void WebView::navigate(std::wstring u) {
     if (!init_done) {
         url = u;
+    } else if (constexpr auto prefix = L"data:text/html,";
+               u.rfind(prefix, 0) == 0) {
+        constexpr auto len = std::wstring_view(prefix).size();
+        webview.NavigateToString(u.substr(len));
     } else {
         Uri uri{u};
         webview.Navigate(uri);
