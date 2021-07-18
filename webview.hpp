@@ -147,7 +147,7 @@ private:
 // Common Windows stuff
 #if defined(WEBVIEW_IS_WIN)
     HWND hwnd = nullptr;
-    MSG msg;  // Message from main loop
+    MSG msg{};  // Message from main loop
     bool isFullscreen = false;
     UINT dpi = USER_DEFAULT_SCREEN_DPI;
 
@@ -155,7 +155,7 @@ private:
         LONG_PTR style;    // GWL_STYLE
         LONG_PTR exstyle;  // GWL_EXSTYLE
         RECT rect;         // GetWindowRect
-    } savedWindowInfo;
+    } savedWindowInfo{};
 
     int WinInit();
     void onDPIChange(const UINT dpi, const RECT& rect);
