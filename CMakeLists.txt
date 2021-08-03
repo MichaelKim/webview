@@ -1,5 +1,10 @@
 cmake_minimum_required (VERSION 3.15)
-project(webview VERSION 1.0.0 LANGUAGES CXX)
+project(webview
+  VERSION 1.0.0
+	LANGUAGES CXX
+  DESCRIPTION
+    "A tiny cross-platform webview library written in C++."
+  HOMEPAGE_URL "https://github.com/MichaelKim/webview")
 include(cmake/Settings.cmake)
 
 if(WIN32)
@@ -19,7 +24,6 @@ include(cmake/StaticAnalyzers.cmake)
 include(cmake/NuGet.cmake)
 
 add_library(${PROJECT_NAME} INTERFACE)
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 if(APPLE)
 	set(WEBVIEW_COMPILE_DEFS WEBVIEW_MAC)
@@ -81,8 +85,6 @@ else()
 	set(WEBVIEW_COMPILE_INCS ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS})
 	set(WEBVIEW_LIBS ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
 endif()
-
-# include(CMakePackageConfigHelpers)
 
 target_include_directories(${PROJECT_NAME} INTERFACE ${PROJECT_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${WEBVIEW_COMPILE_INCS})
