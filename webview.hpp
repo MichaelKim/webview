@@ -45,7 +45,11 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #pragma warning(pop)
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
+#pragma comment(lib, "Advapi32.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "Shlwapi.lib")
+#pragma comment(lib, "user32.lib")
 #include <WebView2.h>
 #include <shellscalingapi.h>
 #include <shlwapi.h>

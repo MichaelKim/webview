@@ -99,7 +99,7 @@ To use `cl.exe` directly, you'd need to grab the NuGet packages manually.
      - `.\build\native\x86\WebView2LoaderStatic.lib`.
      - For dynamic linking, use `WebView2Loader.dll.lib` and make sure `WebView2Loader.dll` is located with your executable when running.
    - From WIL, you need `.\include\wil\`.
-4. Compile by running `cl main.cpp /DWEBVIEW_EDGE /EHsc /std:c++17 /link WebView2LoaderStatic.lib user32.lib version.lib advapi32.lib shell32.lib gdi32.lib`.
+4. Compile by running `cl main.cpp /DWEBVIEW_EDGE /EHsc /std:c++17 /link WebView2LoaderStatic.lib version.lib`.
 
 </details>
 
