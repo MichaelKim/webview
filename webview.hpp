@@ -45,13 +45,16 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #pragma warning(pop)
 #elif defined(WEBVIEW_EDGE)  // WEBVIEW_WIN
+#pragma comment(lib, "Shlwapi.lib")
 #include <WebView2.h>
 #include <shellscalingapi.h>
+#include <shlwapi.h>
 #include <tchar.h>
 #include <wil/com.h>
 #include <windows.h>
 #include <wrl.h>
 
+#include <cstdlib>
 #include <utility>
 #elif defined(WEBVIEW_MAC)  // WEBVIEW_EDGE
 #import <Cocoa/Cocoa.h>
@@ -647,8 +650,28 @@ int WebView::init() {
                 .Get());
     };
 
+    // Get APPDATA path
+    PCWSTR userDataFolderPtr = nullptr;
+    std::wstring userDataFolder;
+
+    DWORD bufferLength = 32767;
+    std::wstring appdataPath;
+    appdataPath.resize(bufferLength);
+    bufferLength = GetEnvironmentVariable(Str("APPDATA"), appdataPath.data(),
+                                          bufferLength);
+    if (bufferLength) {
+        appdataPath.resize(bufferLength);
+
+        // Get executable file name
+        wchar_t exePath[MAX_PATH];
+        GetModuleFileName(NULL, exePath, MAX_PATH);
+        userDataFolder = (appdataPath + Str("/") + PathFindFileName(exePath));
+        userDataFolderPtr = userDataFolder.c_str();
+    }
+
     // Create WebView2 environment
-    auto hr = CreateCoreWebView2Environment(
+    auto hr = CreateCoreWebView2EnvironmentWithOptions(
+        nullptr, userDataFolderPtr, nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             onCreateEnvironment)
             .Get());
@@ -1062,7 +1085,7 @@ void WebView::css(const wv::String& css) {
 void WebView::setCallback(jscb callback) { js_callback = callback; }
 
 void WebView::preEval(const wv::String& js) {
-    inject += Str("(()=>{") + js + Str("})()");
+    inject += Str("(()=>{") + js + Str("})()");  // TODO: is the IIFE necessary?
 }
 
 }  // namespace wv
