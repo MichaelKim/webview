@@ -22,6 +22,7 @@ Inspired from zerge's [webview](https://github.com/webview/webview), this librar
 
 - [Build Steps](docs/build.md)
 - [API Reference](docs/api.md)
+- [Limitations](docs/limitations.md)
 
 ## Usage
 
@@ -48,7 +49,7 @@ The following URL schemes are supported:
 
 - HTTP(S): `http://` and `https://`
 - Local file: `file:///`, make sure to point to an `html` file
-  - Not supported in Edge Legacy (see [Limitations](#limitations))
+  - Not supported in Edge Legacy (see [Limitations](docs/limitations.md))
 - Inline data: `data:text/html,<html>...</html>`
 
 Check out example programs in the [`examples/`](examples/) directory in this repo.
@@ -64,12 +65,3 @@ Note: `WEBVIEW_MAIN` is a macro that resolves to the correct entry point:
 ```
 
 This is needed since Win32 GUI applications uses `WinMain` as the entry point rather than the standard `main`. You can write your own main for more control, but make sure to use `WinMain` if you need to support Windows.
-
-## Limitations
-
-There are several limitations on Windows stemming from the EdgeHTML webview:
-
-- The webview cannot be run as an administrator.
-- The webview cannot navigate to local HTML files (i.e: `file:///...`).
-
-These can be avoided by using the new Chromium Edge webview.

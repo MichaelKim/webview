@@ -3,7 +3,7 @@
 ## Table of Contents
 
 - Windows
-  - [EdgeHTML](#edgehtml) (Microsoft Edge Legacy)
+  - [EdgeHTML](#edgehtml-edge-legacy) (Microsoft Edge Legacy)
   - [Chromium](#chromium-edge) (Microsoft Edge, recommended)
 - [MacOS](#macos)
 - [Linux](#linux)
@@ -11,17 +11,13 @@
 
 If you have CMake installed, the included config should work for all platforms.
 
-There are two native web engines for Windows:
-
-- EdgeHTML
-- Chromium
-  - Right now, the stable channel doesn't have the required version for the webview to work. As Edge continues to update, this should be fixed.
-
 ## EdgeHTML (Edge Legacy)
+
+_Note: It's highly recommended to choose the new Chromium-based Edge over the EdgeHTML-based Edge Legacy._
 
 Define `WEBVIEW_WIN` before adding `webview.hpp`.
 
-In order to target EdgeHTML (Microsoft Edge), `webview` uses the new C++/WinRT API.
+In order to target EdgeHTML (Microsoft Edge Legacy), `webview` uses the new C++/WinRT API.
 
 ### Requirements
 
@@ -165,6 +161,8 @@ http-server -p 8080         # Node
 
 ### Running Headless Tests
 
-- Windows: Currently, there's no way to run the tests in a headless environment.
+- Windows: Supported only for Chromium Edge (`WEBVIEW_EDGE`). Make sure to install the Windows 10 SDK and the WebView2 Runtime before running the webview.
 - MacOS: Supported.
 - Linux: You'll need to run `xvfb` (or similar) before running.
+
+For CI examples, check out the Github Actions config under `.github/workflows/`.

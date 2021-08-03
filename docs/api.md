@@ -228,6 +228,21 @@ void preEval(string js);
 
 Injects the JavaScript string into the webpage before it loads.
 
+Note: in some cases, the JavaScript will be run before the DOM loads. If you need access to the DOM, make sure to wait for it to load:
+
+```js
+window.onload = () => {
+  const el = document.getElementById('id');
+};
+
+// or
+
+window.addEventListener('DOMContentLoaded', () => {
+  // or the 'load' event
+  const el = document.getElementById('id');
+});
+```
+
 ### `eval`
 
 ```c++
