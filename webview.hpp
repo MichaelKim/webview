@@ -494,8 +494,7 @@ int WebView::init() {
     webview.Settings().IsScriptNotifyAllowed(true);
     webview.ScriptNotify([=](auto const&, auto const& args) {
         if (js_callback) {
-            std::string s = winrt::to_string(args.Value());
-            std::wstring ws(s.begin(), s.end());
+            std::wstring ws{args.Value()};
             js_callback(*this, ws);
         }
     });
