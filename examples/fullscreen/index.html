@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  </head>
+  <body>
+    <p>This is localhost:8080!</p>
+    <input type="checkbox" id="check" />
+    <p style="display: inline">Enable fullscreen?</p>
+    <button id="fs">Enable Fullscreen</button>
+    <button id="nofs">Close Fullscreen</button>
+    <script type="text/javascript">
+      var check = document.getElementById('check');
+      var fs = document.getElementById('fs');
+      var nofs = document.getElementById('nofs');
+
+      fs.onclick = function () {
+        if ('requestFullscreen' in document.documentElement)
+          document.documentElement.requestFullscreen();
+        else document.documentElement.webkitRequestFullscreen();
+      };
+
+      nofs.onclick = function () {
+        if ('exitFullscreen' in document) document.exitFullscreen();
+        else document.webkitExitFullscreen();
+      };
+
+      check.onclick = function () {
+        console.log(check.checked);
+        window.external.invoke(check.checked ? '1' : '0');
+      };
+    </script>
+  </body>
+</html>

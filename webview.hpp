@@ -124,10 +124,11 @@ public:
           debug(debug_),
           title(title_),
           url(url_) {}
-    int init();                       // Initialize webview
-    void setCallback(jscb callback);  // JS callback
-    void setTitle(String t);          // Set title of window
-    void setFullscreen(bool fs);      // Set fullscreen
+    int init();                            // Initialize webview
+    void setCallback(jscb callback);       // JS callback
+    void setTitle(String t);               // Set title of window
+    void setFullscreen(bool fs);           // Set fullscreen
+    void setFullscreenFromJS(bool allow);  // Allow setting fullscreen from JS
     void setBgColor(uint8_t r, uint8_t g, uint8_t b,
                     uint8_t a);      // Set background color
     bool run();                      // Main loop
@@ -143,6 +144,7 @@ private:
     int height;
     bool resizable;
     bool fullscreen = false;
+    bool fullscreenFromJS = false;
     bool debug;
     String title;
     String url;
@@ -213,6 +215,10 @@ private:
         WebKitWebView* webview, GtkWidget* default_menu,
         WebKitHitTestResult* hit_test_result, gboolean triggered_with_keyboard,
         gpointer userdata);
+    static gboolean webview_enter_fullscreen_cb(WebKitWebView* webview,
+                                                gpointer userdata);
+    static gboolean webview_leave_fullscreen_cb(WebKitWebView* webview,
+                                                gpointer userdata);
 #endif                       // WEBVIEW_GTK
 };
 
@@ -492,14 +498,22 @@ int WebView::init() {
     webview = block(proc.CreateWebViewControlAsync(
         reinterpret_cast<int64_t>(hwnd), Rect()));
     webview.Settings().IsScriptNotifyAllowed(true);
-    webview.ScriptNotify([=](auto const&, auto const& args) {
+    webview.ScriptNotify([this](const auto&, const auto& args) {
         if (js_callback) {
             std::wstring ws{args.Value()};
             js_callback(*this, ws);
         }
     });
-    webview.NavigationStarting(
-        [=](auto&&, auto&&) { webview.AddInitializeScript(inject); });
+    webview.NavigationStarting([this](const auto&, const auto&) {
+        webview.AddInitializeScript(inject);
+    });
+
+    // Detect fullscreen request from JS
+    webview.ContainsFullScreenElementChanged([this](const auto&, const auto&) {
+        if (fullscreenFromJS) {
+            this->setFullscreen(webview.ContainsFullScreenElement());
+        }
+    });
 
     // Set webview bounds
     resize();
@@ -518,6 +532,8 @@ int WebView::init() {
 
     return 0;
 }
+
+void WebView::setFullscreenFromJS(bool allow) { fullscreenFromJS = allow; }
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
@@ -616,12 +632,27 @@ int WebView::init() {
         webviewWindow->AddScriptToExecuteOnDocumentCreated(inject.c_str(),
                                                            nullptr);
 
-        EventRegistrationToken token;
         webviewWindow->add_WebMessageReceived(
             Callback<ICoreWebView2WebMessageReceivedEventHandler>(
                 onWebMessageReceieved)
                 .Get(),
-            &token);
+            nullptr);
+
+        // Detect fullscreen change from JS
+        webviewWindow->add_ContainsFullScreenElementChanged(
+            Callback<ICoreWebView2ContainsFullScreenElementChangedEventHandler>(
+                [this](ICoreWebView2*, IUnknown*) {
+                    if (fullscreenFromJS) {
+                        BOOL containsFs = false;
+                        webviewWindow->get_ContainsFullScreenElement(
+                            &containsFs);
+                        this->setFullscreen(containsFs);
+                    }
+
+                    return S_OK;
+                })
+                .Get(),
+            nullptr);
 
         // Done initialization, set properties
         init_done = true;
@@ -686,6 +717,8 @@ int WebView::init() {
 
     return 0;
 }
+
+void WebView::setFullscreenFromJS(bool allow) { fullscreenFromJS = allow; }
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
@@ -769,6 +802,11 @@ int WebView::init() {
         [prefs setValue:@YES forKey:@"developerExtrasEnabled"];
     }
 
+    // Allow fullscreen control from JS
+    if (fullscreenFromJS) {
+        [prefs setValue:@YES forKey:@"fullScreenEnabled"];
+    }
+
     WKUserContentController* controller = [config userContentController];
     // Add inject script
     WKUserScript* userScript = [WKUserScript alloc];
@@ -849,6 +887,8 @@ void WebView::setFullscreen(bool fs) {
         [window toggleFullScreen:nil];
     }
 }
+
+void WebView::setFullscreenFromJS(bool allow) { fullscreenFromJS = allow; }
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
@@ -957,6 +997,12 @@ int WebView::init() {
                 inject.c_str(), WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
                 WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL));
 
+    // Monitor for fullscreen changes
+    g_signal_connect(G_OBJECT(webview), "enter-fullscreen",
+                     G_CALLBACK(webview_enter_fullscreen_cb), this);
+    g_signal_connect(G_OBJECT(webview), "leave-fullscreen",
+                     G_CALLBACK(webview_leave_fullscreen_cb), this);
+
     // Done initialization, set properties
     init_done = true;
 
@@ -991,6 +1037,8 @@ void WebView::setFullscreen(bool fs) {
         gtk_window_unfullscreen(GTK_WINDOW(window));
     }
 }
+
+void WebView::setFullscreenFromJS(bool allow) { fullscreenFromJS = allow; }
 
 void WebView::setBgColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!init_done) {
@@ -1067,6 +1115,14 @@ gboolean WebView::webview_context_menu_cb(WebKitWebView*, GtkWidget*,
                                           gpointer) {
     // Always hide context menu if not debug
     return TRUE;
+}
+
+gboolean WebView::webview_enter_fullscreen_cb(WebKitWebView*, gpointer arg) {
+    return !static_cast<WebView*>(arg)->fullscreenFromJS;
+}
+
+gboolean WebView::webview_leave_fullscreen_cb(WebKitWebView*, gpointer arg) {
+    return !static_cast<WebView*>(arg)->fullscreenFromJS;
 }
 #endif                      // WEBVIEW_GTK
 
