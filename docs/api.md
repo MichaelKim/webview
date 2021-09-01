@@ -9,6 +9,7 @@
   - [webview.setCallback](#setcallback)
   - [webview.setTitle](#settitle)
   - [webview.setFullscreen](#setfullscreen)
+  - [webview.setFullscreenFromJS](#setfullscreenfromjs)
   - [webview.setBgColor](#setbgcolor)
   - [webview.run](#run)
   - [webview.navigate](#navigate)
@@ -161,6 +162,40 @@ Sets the webview window to fullscreen or windowed mode.
 #### Params
 
 - fs: True if setting to fullscreen, false if windowed
+
+### `setFullscreenFromJS`
+
+```c++
+void setFullscreenFromJS(bool allow);
+```
+
+Sets whether JavaScript can directly switch between fullscreen and windowed mode. By default, JavaScript cannot change the window using `requestFullscreen()` and `exitFullscreen()`. Any fullscreen element will take up the size of the window itself rather than the screen.
+
+Note: on Mac (`WEBVIEW_MAC`), this method will only apply when called before [`init`](#init). After [`init`](#init), this will be a no-op. For fine-grained control, consider polyfilling the fullscreen API with a call to C++ and manually call [`setFullscreen`](#setfullscreen). For example,
+
+```js
+Element.prototype.requestFullscreen = () => window.external.invoke('full');
+Document.prototype.exitFullscreen = () => window.external.invoke('exit');
+```
+
+```c++
+WEBVIEW_MAIN {
+  bool allow = false;
+  wv::WebView w{};
+
+  if (w.init() == -1) return 1;
+  w.setCallback([](wv::WebView& w, wv::String& arg) {
+    if (allow) {
+      if (arg == "full") w.setFullscreen(true);
+      else if (arg == "exit") w.setFullscreen(false);
+    }
+  });
+
+  while (w.run() == 0);
+
+  return 0;
+}
+```
 
 ### `setBgColor`
 
