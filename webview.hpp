@@ -112,7 +112,7 @@ using namespace Microsoft::WRL;
 #endif
 
 class WebView {
-    using jscb = std::function<void(WebView&, String&)>;
+    using jscb = std::function<void(WebView&, const String&)>;
 
 public:
     WebView(int width_ = 800, int height_ = 600, bool resizable_ = true,
