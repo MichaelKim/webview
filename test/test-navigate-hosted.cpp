@@ -5,7 +5,7 @@ WEBVIEW_MAIN {
 
     w.navigate(Str("http://localhost:8080/local.html"));
 
-    w.setCallback([](wv::WebView &webview, wv::String &arg) {
+    w.setCallback([](wv::WebView &webview, const wv::String &arg) {
         if (arg == Str("onload")) {
             webview.exit();
         }

@@ -19,7 +19,7 @@ WEBVIEW_MAIN {
 </body>
 </html>)"));
 
-    w.setCallback([](wv::WebView &webview, wv::String &arg) {
+    w.setCallback([](wv::WebView &webview, const wv::String &arg) {
         if (arg == Str("onload")) {
             webview.exit();
         }

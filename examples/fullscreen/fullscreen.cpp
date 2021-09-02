@@ -4,7 +4,7 @@
 
 #include "webview.hpp"
 
-void callback(wv::WebView &w, wv::String &arg) {
+void callback(wv::WebView &w, const wv::String &arg) {
     w.setFullscreenFromJS(arg[0] == '1');
 }
 

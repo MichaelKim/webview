@@ -3,7 +3,7 @@
 WEBVIEW_MAIN {
     wv::WebView w;
 
-    w.setCallback([](wv::WebView &webview, wv::String &arg) {
+    w.setCallback([](wv::WebView &webview, const wv::String &arg) {
         if (arg == Str("ready")) {
             webview.eval(Str("window._onready();"));
         } else if (arg == Str("exit")) {

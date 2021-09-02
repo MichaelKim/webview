@@ -13,7 +13,7 @@
 
 long long factorial(long long n) { return n <= 1 ? 1 : n * factorial(n - 1); }
 
-void callback(wv::WebView &w, wv::String &arg) {
+void callback(wv::WebView &w, const wv::String &arg) {
     try {
         long long num = std::stoll(arg);
         w.eval(Str("result(") + to_string(factorial(num)) + Str(")"));

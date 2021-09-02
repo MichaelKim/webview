@@ -8,7 +8,7 @@ WEBVIEW_MAIN {
     w.navigate(Str("file:///") +
                wv::String(std::filesystem::current_path() / "local.html"));
 
-    w.setCallback([](wv::WebView &webview, wv::String &arg) {
+    w.setCallback([](wv::WebView &webview, const wv::String &arg) {
         if (arg == Str("onload")) {
             webview.exit();
         }
