@@ -807,6 +807,10 @@ int WebView::init() {
         [prefs setValue:@YES forKey:@"fullScreenEnabled"];
     }
 
+    // Enable clipboard access from JS
+    [prefs setValue:@YES forKey:@"javascriptCanAccessClipboard"];
+    [prefs setValue:@YES forKey:@"DOMPasteAllowed"];
+
     WKUserContentController* controller = [config userContentController];
     // Add inject script
     WKUserScript* userScript = [WKUserScript alloc];
