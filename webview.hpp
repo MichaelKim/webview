@@ -808,7 +808,7 @@ int WebView::init() {
     }
 
     // Enable clipboard access from JS
-    [prefs setValue:@YES forKey:@"javascriptCanAccessClipboard"];
+    [prefs setValue:@YES forKey:@"javaScriptCanAccessClipboard"];
     [prefs setValue:@YES forKey:@"DOMPasteAllowed"];
 
     WKUserContentController* controller = [config userContentController];
