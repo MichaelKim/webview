@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <style>
+      .select {
+        display: flex;
+        align-items: center;
+      }
+      input {
+        margin: 4px 8px 4px 4px;
+      }
+      pre {
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <textarea id="text" rows="10" cols="50">Enter text here!</textarea>
+    <button id="copy">Copy</button>
+    <button id="cut">Cut</button>
+    <button id="paste">Paste</button>
+
+    <textarea id="status" rows="10" cols="50" readonly>Status</textarea>
+    <button id="clear">Clear</button>
+
+    <div class="select">
+      <input type="radio" id="doc" name="clipboard" value="doc" checked />
+      <label for="doc"><pre>document.execCommand</pre></label>
+    </div>
+
+    <div class="select">
+      <input type="radio" id="nav" name="clipboard" value="nav" />
+      <label for="nav"><pre>navigator.clipboard</pre></label>
+    </div>
+
+    <script type="text/javascript">
+      const text = document.getElementById('text');
+      const stat = document.getElementById('status');
+      const copy = document.getElementById('copy');
+      const cut = document.getElementById('cut');
+      const paste = document.getElementById('paste');
+      const clear = document.getElementById('clear');
+      const doc = document.getElementById('doc');
+
+      clear.addEventListener('click', () => {
+        stat.value = 'Status';
+      });
+
+      function log(msg) {
+        stat.value += '\n' + msg;
+        stat.scrollTop = stat.scrollHeight;
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'c' && e.metaKey) {
+          e.preventDefault();
+          log('Pressed Cmd+C');
+          copy.click();
+        } else if (e.key === 'x' && e.metaKey) {
+          e.preventDefault();
+          log('Pressed Cmd+X');
+          cut.click();
+        } else if (e.key === 'v' && e.metaKey) {
+          e.preventDefault();
+          log('Pressed Cmd+V');
+          paste.click();
+        }
+      });
+
+      copy.addEventListener('click', () => {
+        if (doc.checked) {
+          if (document.execCommand('copy')) {
+            log('Copied: ' + text.value);
+          } else {
+            log('Failed to copy');
+          }
+        } else {
+          navigator.clipboard
+            .writeText(text.value)
+            .then(() => log('Copied: ' + text.value))
+            .catch(() => log('Failed to copy'));
+        }
+      });
+
+      cut.addEventListener('click', () => {
+        if (doc.checked) {
+          if (document.execCommand('cut')) {
+            log('Cut: ' + text.value);
+            text.value = '';
+          } else {
+            log('Failed to cut');
+          }
+        } else {
+          navigator.clipboard
+            .writeText(text.value)
+            .then(() => {
+              log('Cut: ' + text.value);
+              text.value = '';
+            })
+            .catch(() => log('Failed to cut'));
+        }
+      });
+
+      paste.addEventListener('click', () => {
+        if (doc.checked) {
+          if (document.execCommand('paste')) {
+            log('Paste: ' + text.value);
+          } else {
+            log('Failed to paste');
+          }
+        } else {
+          navigator.clipboard
+            .readText()
+            .then((value) => {
+              text.value += value;
+              log('Pasted: ' + value);
+            })
+            .catch(() => log('Failed to paste'));
+        }
+      });
+    </script>
+  </body>
+</html>
