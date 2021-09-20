@@ -766,6 +766,99 @@ void WebView::resize() {
     webviewController->put_Bounds(rc);
 }
 #elif defined(WEBVIEW_MAC)   // WEBVIEW_EDGE
+NSMenuItem* createMenuItem(NSString* title, const char* action, NSString* key) {
+    NSMenuItem* item = [NSMenuItem alloc];
+    [item initWithTitle:title
+                 action:sel_registerName(action)
+          keyEquivalent:key];
+    [item autorelease];
+    return item;
+}
+
+struct ItemSpec {
+    enum ItemType { Element, Separator };
+
+    const ItemType type;
+    NSString* name;
+    const char* action;
+    NSString* keyEquivalent;
+};
+
+void addItemToMenu(NSMenu* menu, const ItemSpec& spec) {
+    NSMenuItem* item =
+        spec.type == ItemSpec::Separator
+            ? [NSMenuItem separatorItem]
+            : createMenuItem(spec.name, spec.action, spec.keyEquivalent);
+    [item autorelease];
+    [menu addItem:item];
+}
+
+const ItemSpec EDIT_MENU_ITEMS[] = {
+    {.name = @"Undo", .action = "undo:", .keyEquivalent = @"z"},
+    {.name = @"Redo", .action = "redo:", .keyEquivalent = @"Z"},
+    {.type = ItemSpec::Separator},
+    {.name = @"Cut", .action = "cut:", .keyEquivalent = @"x"},
+    {.name = @"Copy", .action = "copy:", .keyEquivalent = @"c"},
+    {.name = @"Paste", .action = "paste:", .keyEquivalent = @"v"},
+    {.name = @"Delete", .action = "delete:", .keyEquivalent = @""},
+    {.name = @"Select All", .action = "selectAll:", .keyEquivalent = @"a"},
+};
+
+void setupMenuBar() {
+    NSString* appName = [[NSProcessInfo processInfo] processName];
+
+    // First dropdown (appName)
+    NSMenu* appMenu = [NSMenu alloc];
+    [appMenu initWithTitle:appName];
+    [appMenu autorelease];
+
+    NSString* hideTitle = [@"Hide " stringByAppendingString:appName];
+    NSMenuItem* hideItem = createMenuItem(hideTitle, "hide:", @"h");
+    [appMenu addItem:hideItem];
+
+    NSMenuItem* hideOthersItem =
+        createMenuItem(@"Hide Others", "hideOtherApplications:", @"h");
+    [hideOthersItem setKeyEquivalentModifierMask:NSEventModifierFlagOption |
+                                                 NSEventModifierFlagCommand];
+    [appMenu addItem:hideOthersItem];
+
+    NSMenuItem* showAllItem =
+        createMenuItem(@"Show All", "unhideAllApplications:", @"");
+    [appMenu addItem:showAllItem];
+
+    [appMenu addItem:[NSMenuItem separatorItem]];
+
+    NSString* quitTitle = [@"Quit " stringByAppendingString:appName];
+    NSMenuItem* quitItem = createMenuItem(quitTitle, "terminate:", @"q");
+    [appMenu addItem:quitItem];
+
+    NSMenuItem* appMenuItem = [NSMenuItem alloc];
+    [appMenuItem initWithTitle:appName action:nil keyEquivalent:@""];
+    [appMenuItem setSubmenu:appMenu];
+
+    // Second dropdown (Edit)
+    NSMenu* editMenu = [NSMenu alloc];
+    [editMenu initWithTitle:@"Edit"];
+    [editMenu autorelease];
+
+    for (const auto& spec : EDIT_MENU_ITEMS) {
+        addItemToMenu(editMenu, spec);
+    }
+
+    NSMenuItem* menuItem = [NSMenuItem alloc];
+    [menuItem initWithTitle:@"Edit" action:nil keyEquivalent:@""];
+    [menuItem setSubmenu:editMenu];
+
+    // Custom application menu bar
+    NSMenu* menubar = [NSMenu alloc];
+    [menubar initWithTitle:@""];
+    [menubar autorelease];
+    [menubar addItem:appMenuItem];
+    [menubar addItem:menuItem];
+    [NSApp setMainMenu:menubar];
+    [NSApp finishLaunching];
+}
+
 int WebView::init() {
     // Initialize autorelease pool
     pool = [NSAutoreleasePool new];
@@ -861,6 +954,8 @@ int WebView::init() {
 
     // Display window
     [window makeKeyAndOrderFront:nil];
+
+    setupMenuBar();
 
     // Done initialization, set properties
     init_done = true;
