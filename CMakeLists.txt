@@ -5,22 +5,11 @@ project(webview
   DESCRIPTION
     "A tiny cross-platform webview library written in C++."
   HOMEPAGE_URL "https://github.com/MichaelKim/webview")
-include(cmake/Settings.cmake)
 
 if(WIN32)
 	option(WEBVIEW_USE_EDGE "Enables Edge Chromium for Windows" ON)
 endif()
 
-add_library(project_options INTERFACE)
-target_compile_features(project_options INTERFACE cxx_std_17)
-include(cmake/Sanitizers.cmake)
-enable_sanitizers(project_options)
-
-add_library(project_warnings INTERFACE)
-include(cmake/Warnings.cmake)
-set_project_warnings(project_warnings)
-
-include(cmake/StaticAnalyzers.cmake)
 include(cmake/NuGet.cmake)
 
 add_library(${PROJECT_NAME} INTERFACE)
@@ -91,4 +80,4 @@ target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE ${WEBVIEW_COMPILE_IN
 target_compile_definitions(${PROJECT_NAME} INTERFACE ${WEBVIEW_COMPILE_DEFS})
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_17)
 target_compile_options(${PROJECT_NAME} INTERFACE ${WEBVIEW_COMPILE_OPTS})
-target_link_libraries(${PROJECT_NAME} INTERFACE project_options project_warnings ${WEBVIEW_LIBS})
+target_link_libraries(${PROJECT_NAME} INTERFACE ${WEBVIEW_LIBS})
