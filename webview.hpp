@@ -992,10 +992,11 @@ int WebView::init() {
                          G_CALLBACK(webview_context_menu_cb), nullptr);
     }
 
-    webkit_user_content_manager_add_script(
-        cm, webkit_user_script_new(
-                inject.c_str(), WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
-                WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL));
+    WebKitUserScript* script = webkit_user_script_new(
+        inject.c_str(), WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+        WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL);
+    webkit_user_content_manager_add_script(cm, script);
+    webkit_user_script_unref(script);
 
     // Monitor for fullscreen changes
     g_signal_connect(G_OBJECT(webview), "enter-fullscreen",
@@ -1085,7 +1086,9 @@ void WebView::external_message_received_cb(WebKitUserContentManager*,
     WebView* w = static_cast<WebView*>(arg);
     if (w->js_callback) {
         JSCValue* value = webkit_javascript_result_get_js_value(r);
-        std::string str = std::string(jsc_value_to_string(value));
+        char* cstr = jsc_value_to_json(value);
+        std::string str(cstr);
+        g_free(cstr);
         w->js_callback(*w, str);
     }
 }
