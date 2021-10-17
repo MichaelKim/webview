@@ -1086,7 +1086,7 @@ void WebView::external_message_received_cb(WebKitUserContentManager*,
     WebView* w = static_cast<WebView*>(arg);
     if (w->js_callback) {
         JSCValue* value = webkit_javascript_result_get_js_value(r);
-        char* cstr = jsc_value_to_json(value);
+        char* cstr = jsc_value_to_string(value);
         std::string str(cstr);
         g_free(cstr);
         w->js_callback(*w, str);
